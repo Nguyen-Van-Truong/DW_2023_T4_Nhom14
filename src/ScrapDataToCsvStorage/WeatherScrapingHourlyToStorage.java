@@ -89,7 +89,7 @@ public class WeatherScrapingHourlyToStorage {
 		}
 	}
 
-	public static List<HourlyWeatherInfo> scrapeHourlyWeatherData(WebDriver driver, String url, String province,
+	public static List<HourlyWeatherInfo> scrapeHourlyWeatherData3Days(WebDriver driver, String url, String province,
 			String district) {
 		List<HourlyWeatherInfo> hourlyData = new ArrayList<>();
 		driver.get(url);
@@ -99,7 +99,7 @@ public class WeatherScrapingHourlyToStorage {
 		WebElement dewPointElement = driver.findElement(By.cssSelector(dewPointSelector));
 		String dewPoint = dewPointElement.getText().trim();
 
-	    LocalDate currentDate = LocalDate.now(); // Khởi tạo ngày hiện tại
+	    LocalDate currentDate = LocalDate.now(); 
 	    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d/M");
 	    
 		for (WebElement detail : weatherDetails) {
@@ -172,7 +172,7 @@ public class WeatherScrapingHourlyToStorage {
 			String province, String district) {
 		for (int attempt = 0; attempt < maxRetries; attempt++) {
 			try {
-				return scrapeHourlyWeatherData(driver, url, province, district);
+				return scrapeHourlyWeatherData3Days(driver, url, province, district);
 			} catch (TimeoutException e) {
 				System.err.println("Timeout khi thu thập dữ liệu từ URL: " + url + ". Thử lại lần " + (attempt + 1));
 				// Tùy chọn: Thêm thời gian chờ giữa các lần thử lại nếu cần
@@ -186,10 +186,10 @@ public class WeatherScrapingHourlyToStorage {
 				Thread.currentThread().interrupt();
 			}
 		}
-		return new ArrayList<>(); // Trả về danh sách rỗng nếu không thành công
+		return new ArrayList<>();
 	}
 
-	public static void scrapeAndSaveProvinceAndDistrictWeatherData(WebDriver driver) {
+	public static void scrapeAndSaveToCsv(WebDriver driver) {
 		long startTime = System.currentTimeMillis();
 		List<HourlyWeatherInfo> allWeatherData = new ArrayList<>();
 		ExecutorService executorService = Executors.newFixedThreadPool(4);
@@ -228,7 +228,7 @@ public class WeatherScrapingHourlyToStorage {
 						}
 					} finally {
 						driverForDistrict.quit();
-						completedUrls.incrementAndGet(); // Tăng biến đếm
+						completedUrls.incrementAndGet();
 						System.out.println("Finished URL: " + completedUrls.get());
 					}
 				});
@@ -290,7 +290,7 @@ public class WeatherScrapingHourlyToStorage {
 
 //        System.out.println(hourlyWeatherData.get(0));
 
-		scrapeAndSaveProvinceAndDistrictWeatherData(driver);
+		scrapeAndSaveToCsv(driver);
 		System.out.println(5);
 
 //		countUrl(driver);
