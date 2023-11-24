@@ -17,6 +17,15 @@ public class HourlyWeatherInfo {
 	private String province;
 	private String district;
 	private String url;
+	private String airQuality;
+
+	public String getAirQuality() {
+		return airQuality;
+	}
+
+	public void setAirQuality(String airQuality) {
+		this.airQuality = airQuality;
+	}
 
 	public String getUrl() {
 		return url;
@@ -143,6 +152,7 @@ public class HourlyWeatherInfo {
 				+ time + '\'' + ", Min Temperature='" + temperatureMin + '\'' + ", Max Temperature='" + temperatureMax
 				+ '\'' + ", Description='" + description + '\'' + ", Humidity='" + humidity + '\'' + ", Wind Speed='"
 				+ windSpeed + '\'' + ", UV Index='" + uvIndex + '\'' + ", Visibility='" + visibility + '\''
-				+ ", Pressure='" + pressure + ", StopPoint=" + stopPoint + ", Url=" + url + '\'';
+				+ ", Pressure='" + pressure + '\'' + ", Air Quality='" + airQuality + '\'' + // Dòng mới
+				", StopPoint=" + stopPoint + ", Url=" + url;
 	}
 }
