@@ -2,6 +2,9 @@ package ScrapDataToCsvStorage;
 
 import java.time.LocalDate;
 
+/**
+ * Holds detailed hourly weather information for a specific location.
+ */
 public class HourlyWeatherInfo {
 	private String date;
 	private String time;
@@ -139,6 +142,19 @@ public class HourlyWeatherInfo {
 		this.pressure = removeUnits(pressure);
 	}
 
+	/**
+	 * Getters and Setters for various weather parameters like temperature,
+	 * humidity, wind speed, UV index, etc. Each field has a corresponding getter
+	 * and some have setters that also remove units from the string values.
+	 */
+
+	/**
+	 * Removes units from the given string value, if present. This is used to
+	 * process weather data values like temperature, humidity, etc.
+	 *
+	 * @param value The string value to process.
+	 * @return The processed string without units.
+	 */
 	private String removeUnits(String value) {
 		if (value == null)
 			return null;

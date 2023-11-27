@@ -31,7 +31,15 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 
+/**
+ * Class for scraping weather data hourly and storing it in a CSV file.
+ */
 public class WeatherScrapingHourlyToStorage {
+	/**
+	 * Sets the System output to UTF-8 encoding.
+	 * 
+	 * @return true if successful, false otherwise
+	 */
 	private static boolean setUTF8Output() {
 		try {
 			System.setOut(new PrintStream(System.out, true, "UTF-8"));
@@ -42,6 +50,12 @@ public class WeatherScrapingHourlyToStorage {
 		}
 	}
 
+	/**
+	 * Retrieves a list of all provinces from the website.
+	 * 
+	 * @param driver WebDriver instance to use for scraping
+	 * @return List of ProvinceInfo objects containing province names and URLs
+	 */
 	public static List<ProvinceInfo> getAllProvinces(WebDriver driver) {
 		List<ProvinceInfo> provinces = new ArrayList<>();
 		driver.get("https://thoitiet.vn"); // URL chính của trang web
@@ -58,6 +72,13 @@ public class WeatherScrapingHourlyToStorage {
 		return provinces;
 	}
 
+	/**
+	 * Retrieves a list of districts for a given province URL.
+	 * 
+	 * @param driver      WebDriver instance to use for scraping
+	 * @param provinceUrl URL of the province page
+	 * @return List of DistrictInfo objects containing district names and URLs
+	 */
 	public static List<DistrictInfo> getDistrictsOfProvince(WebDriver driver, String provinceUrl) {
 		List<DistrictInfo> districts = new ArrayList<>();
 		driver.get(provinceUrl);
@@ -73,6 +94,14 @@ public class WeatherScrapingHourlyToStorage {
 		return districts;
 	}
 
+	/**
+	 * Safely gets text from a WebElement, returns a default value if not found.
+	 * 
+	 * @param detail       WebElement to search within
+	 * @param selector     By selector to find the desired element
+	 * @param defaultValue Default value to return if element is not found
+	 * @return String value of the element or default value
+	 */
 	private static String safelyGetText(WebElement detail, By selector, String defaultValue) {
 		try {
 			return detail.findElement(selector).getText();
@@ -81,6 +110,14 @@ public class WeatherScrapingHourlyToStorage {
 		}
 	}
 
+	/**
+	 * Safely gets text from the WebDriver, returns a default value if not found.
+	 * 
+	 * @param driver       WebDriver instance to use for scraping
+	 * @param selector     By selector to find the desired element
+	 * @param defaultValue Default value to return if element is not found
+	 * @return String value of the element or default value
+	 */
 	private static String safelyGetText(WebDriver driver, By selector, String defaultValue) {
 		try {
 			return driver.findElement(selector).getText();
@@ -89,6 +126,14 @@ public class WeatherScrapingHourlyToStorage {
 		}
 	}
 
+	/**
+	 * Retrieves air quality data from a given URL.
+	 * 
+	 * @param driver     WebDriver instance to use for scraping
+	 * @param url        URL to scrape for air quality data
+	 * @param maxRetries Maximum number of retries for scraping
+	 * @return Air quality as a string
+	 */
 	private static String getAirQuality(WebDriver driver, String url, int maxRetries) {
 		for (int attempt = 0; attempt < maxRetries; attempt++) {
 			try {
@@ -110,6 +155,16 @@ public class WeatherScrapingHourlyToStorage {
 		return "Không rõ";
 	}
 
+	/**
+	 * Scrapes hourly weather data for the next 3 days.
+	 * 
+	 * @param driver     WebDriver instance to use for scraping
+	 * @param url        URL to scrape for weather data
+	 * @param province   Name of the province
+	 * @param district   Name of the district
+	 * @param airQuality Air quality information
+	 * @return List of HourlyWeatherInfo objects containing weather data
+	 */
 	public static List<HourlyWeatherInfo> scrapeHourlyWeatherData3Days(WebDriver driver, String url, String province,
 			String district, String airQuality) {
 		List<HourlyWeatherInfo> hourlyData = new ArrayList<>();
@@ -165,6 +220,12 @@ public class WeatherScrapingHourlyToStorage {
 		return hourlyData;
 	}
 
+	/**
+	 * Saves the collected weather data to a CSV file.
+	 * 
+	 * @param weatherData List of HourlyWeatherInfo objects to save
+	 * @param filePath    Path to the CSV file
+	 */
 	public static void saveToCSV(List<HourlyWeatherInfo> weatherData, String filePath) {
 		try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(filePath),
 				StandardCharsets.UTF_8)) {
@@ -189,6 +250,17 @@ public class WeatherScrapingHourlyToStorage {
 		}
 	}
 
+	/**
+	 * Attempts to scrape weather data with retries on failure.
+	 * 
+	 * @param driver     WebDriver instance to use for scraping
+	 * @param url        URL to scrape for weather data
+	 * @param maxRetries Maximum number of retries for scraping
+	 * @param province   Name of the province
+	 * @param district   Name of the district
+	 * @param airQuality Air quality information
+	 * @return List of HourlyWeatherInfo objects containing weather data
+	 */
 	private static List<HourlyWeatherInfo> scrapeWithRetry(WebDriver driver, String url, int maxRetries,
 			String province, String district, String airQuality) {
 		for (int attempt = 0; attempt < maxRetries; attempt++) {
@@ -210,6 +282,9 @@ public class WeatherScrapingHourlyToStorage {
 		return new ArrayList<>();
 	}
 
+	/**
+	 * Initiates the scraping process and saves data to CSV.
+	 */
 	public static void scrapeAndSaveToCsv() {
 		long startTime = System.currentTimeMillis();
 		List<HourlyWeatherInfo> allWeatherData = new ArrayList<>();
@@ -295,6 +370,11 @@ public class WeatherScrapingHourlyToStorage {
 		System.out.println("Total runtime: " + duration + " ms");
 	}
 
+	/**
+	 * The main method to start the scraping process.
+	 * 
+	 * @param args Command-line arguments (not used)
+	 */
 	public static void main(String[] args) {
 		if (!setUTF8Output()) {
 			return;
@@ -336,6 +416,11 @@ public class WeatherScrapingHourlyToStorage {
 		driver.quit();
 	}
 
+	/**
+	 * Retrieves the public IP address of the machine.
+	 * 
+	 * @return Public IP address as a string
+	 */
 	public static String getIPAddress() {
 		try {
 			// Sử dụng một dịch vụ trực tuyến để lấy địa chỉ IP công cộng
@@ -350,6 +435,11 @@ public class WeatherScrapingHourlyToStorage {
 		}
 	}
 
+	/**
+	 * Counts and prints the number of different URLs for provinces and districts.
+	 * 
+	 * @param driver WebDriver instance to use for scraping
+	 */
 	private static void countUrl(WebDriver driver) {
 		Set<String> allUrls = new HashSet<>();
 		int provinceCount = 0;
