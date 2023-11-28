@@ -307,61 +307,62 @@ public class WeatherScrapingHourlyToStorage {
 	public static void scrapeAndSaveToCsv() {
 		long startTime = System.currentTimeMillis();
 		List<HourlyWeatherInfo> allWeatherData = new ArrayList<>();
-		ExecutorService executorService = Executors.newFixedThreadPool(4);
-		AtomicInteger completedUrls = new AtomicInteger(1);
+		ExecutorService executorService = Executors.newFixedThreadPool(2); // Adjust thread pool size as needed
+		AtomicInteger completedUrls = new AtomicInteger(0);
 
 		WebDriver driverForGetProvinces = new ChromeDriver(createChromeOption());
 		List<ProvinceInfo> provinces = getAllProvinces(driverForGetProvinces);
-
-		for (int i = 0; i < provinces.size(); i++) {
-			ProvinceInfo province = provinces.get(i);
+		
+		for (ProvinceInfo province : provinces) {
+			
+			// Submit separate tasks for each province
 			executorService.submit(() -> {
-				WebDriver driverForProvince = new ChromeDriver(createChromeOption());
-				WebDriver driverForAirQuality = new ChromeDriver(createChromeOption());
+				WebDriver driver = new ChromeDriver(createChromeOption());
 				try {
-					// get air quality data from another url
-					String airQuality = getAirQuality(driverForAirQuality, province.getUrl(), 3);
-
-					List<HourlyWeatherInfo> provinceWeatherData = scrapeWithRetry(driverForProvince,
-							province.getUrlHour(), 3, province.getName(), "", airQuality);
+					String airQuality = getAirQuality(driver, province.getUrl(), 3);
+					List<HourlyWeatherInfo> provinceWeatherData = scrapeWithRetry(driver, province.getUrlHour(), 3,
+							province.getName(), "", airQuality);
 					synchronized (allWeatherData) {
 						allWeatherData.addAll(provinceWeatherData);
 					}
 				} finally {
-					driverForProvince.quit();
-					completedUrls.incrementAndGet();
-					System.out.println("Finished URL: " + completedUrls.get());
-					completedUrls.incrementAndGet();
-					System.out.println("Finished URL: " + completedUrls.get());
+					driver.quit();
+					int finished = completedUrls.incrementAndGet();
+					System.out.println("Finished URL: " + finished);
 				}
 			});
 
+			// Process districts within each province
 			WebDriver driverForGetDistricts = new ChromeDriver(createChromeOption());
 			List<DistrictInfo> districts = getDistrictsOfProvince(driverForGetDistricts, province.getUrl());
-			for (int j = 0; j < districts.size(); j++) {
-				DistrictInfo district = districts.get(j);
-				executorService.submit(() -> {
-					WebDriver driverForDistrict = new ChromeDriver(createChromeOption());
-					WebDriver driverForAirQuality = new ChromeDriver(createChromeOption());
-					try {
-						String airQuality = getAirQuality(driverForAirQuality, district.getUrl(), 3);
 
-						List<HourlyWeatherInfo> districtWeatherData = scrapeWithRetry(driverForDistrict,
-								district.getUrlHour(), 3, province.getName(), district.getName(), airQuality);
+			for (DistrictInfo district : districts) {
+				// Submit separate tasks for each district
+				executorService.submit(() -> {
+					WebDriver driver = new ChromeDriver(createChromeOption());
+					try {
+						String airQuality = getAirQuality(driver, district.getUrl(), 3);
+						List<HourlyWeatherInfo> districtWeatherData = scrapeWithRetry(driver, district.getUrlHour(), 3,
+								province.getName(), district.getName(), airQuality);
 						synchronized (allWeatherData) {
 							allWeatherData.addAll(districtWeatherData);
 						}
 					} finally {
-						driverForDistrict.quit();
-						completedUrls.incrementAndGet();
-						System.out.println("Finished URL: " + completedUrls.get());
-						completedUrls.incrementAndGet();
-						System.out.println("Finished URL: " + completedUrls.get());
+						driver.quit();
+						int finished = completedUrls.incrementAndGet();
+						System.out.println("Finished URL: " + finished);
 					}
 				});
 			}
+			break;
 		}
 
+		// Finalization of the scraping process
+		finalizeScraping(executorService, allWeatherData, completedUrls, startTime);
+	}
+
+	private static void finalizeScraping(ExecutorService executorService, List<HourlyWeatherInfo> allWeatherData,
+			AtomicInteger completedUrls, long startTime) {
 		executorService.shutdown();
 		try {
 			executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
@@ -371,6 +372,10 @@ public class WeatherScrapingHourlyToStorage {
 		System.out.println("Total URLs completed: " + completedUrls.get());
 		System.out.println("Total data collected: " + allWeatherData.size());
 
+		saveDataAndPrintSummary(allWeatherData, startTime);
+	}
+
+	private static void saveDataAndPrintSummary(List<HourlyWeatherInfo> allWeatherData, long startTime) {
 		LocalDateTime now = LocalDateTime.now();
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm");
 		String formattedDateTime = now.format(formatter);
