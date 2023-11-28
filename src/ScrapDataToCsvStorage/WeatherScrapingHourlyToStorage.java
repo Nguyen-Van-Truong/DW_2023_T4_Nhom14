@@ -58,9 +58,8 @@ public class WeatherScrapingHourlyToStorage {
 	 */
 	public static List<ProvinceInfo> getAllProvinces(WebDriver driver) {
 		List<ProvinceInfo> provinces = new ArrayList<>();
-		driver.get("https://thoitiet.vn"); // URL chính của trang web
+		getWithRetry(driver, "https://thoitiet.vn", 3);
 
-		// Lấy các phần tử chứa thông tin về tỉnh
 		List<WebElement> provinceElements = driver.findElements(By.cssSelector(".dropdown-menu .mega-submenu a"));
 
 		for (WebElement provinceElement : provinceElements) {
@@ -72,6 +71,23 @@ public class WeatherScrapingHourlyToStorage {
 		return provinces;
 	}
 
+	private static boolean getWithRetry(WebDriver driver, String url, int maxRetries) {
+		for (int attempt = 0; attempt < maxRetries; attempt++) {
+			try {
+				driver.get(url);
+				return true; // Successfully loaded the page
+			} catch (Exception e) {
+				System.err.println("Error accessing URL: " + url + ". Retry attempt " + (attempt + 1));
+				try {
+					Thread.sleep(10000); // Wait for 5 seconds before retrying
+				} catch (InterruptedException ie) {
+					Thread.currentThread().interrupt();
+				}
+			}
+		}
+		return false; // Failed to load the page after retries
+	}
+
 	/**
 	 * Retrieves a list of districts for a given province URL.
 	 * 
@@ -81,7 +97,7 @@ public class WeatherScrapingHourlyToStorage {
 	 */
 	public static List<DistrictInfo> getDistrictsOfProvince(WebDriver driver, String provinceUrl) {
 		List<DistrictInfo> districts = new ArrayList<>();
-		driver.get(provinceUrl);
+		getWithRetry(driver, provinceUrl, 3);
 
 		List<WebElement> districtElements = driver.findElements(By.cssSelector(".khu-vuc-lan-can a"));
 
@@ -135,24 +151,28 @@ public class WeatherScrapingHourlyToStorage {
 	 * @return Air quality as a string
 	 */
 	private static String getAirQuality(WebDriver driver, String url, int maxRetries) {
-		for (int attempt = 0; attempt < maxRetries; attempt++) {
-			try {
-				driver.get(url);
-				WebElement airQualityElement = driver.findElement(By.cssSelector(".air-rules .air-active"));
-				return airQualityElement.getText().trim();
-			} catch (NoSuchElementException e) {
-				System.err.println("Không tìm thấy thông tin chất lượng không khí. Thử lại lần " + (attempt + 1));
-			} catch (Exception e) {
-				System.err.println("Lỗi khi truy cập URL: " + url + ". Thử lại lần " + (attempt + 1));
-			}
-			// Thời gian chờ trước khi thử lại
-			try {
-				Thread.sleep(5000);
-			} catch (InterruptedException ie) {
-				Thread.currentThread().interrupt();
-			}
+		getWithRetry(driver, url, maxRetries);
+		try {
+			WebElement airQualityElement = driver.findElement(By.cssSelector(".air-rules .air-active"));
+			return airQualityElement.getText().trim();
+		} catch (NoSuchElementException e) {
+			System.err.println("Air quality information not found.");
+			return "Không rõ";
 		}
-		return "Không rõ";
+	}
+
+	/**
+	 * Creates and configures ChromeOptions for WebDriver. ChromeOptions are used to
+	 * set various properties and arguments for the ChromeDriver.
+	 *
+	 * @return Configured ChromeOptions object.
+	 */
+	private static ChromeOptions createChromeOption() {
+		ChromeOptions chromeOptions = new ChromeOptions();
+		chromeOptions.addArguments("--headless");
+		chromeOptions.addArguments("--no-sandbox");
+		chromeOptions.addArguments("--disable-dev-shm-usage");
+		return chromeOptions;
 	}
 
 	/**
@@ -168,7 +188,7 @@ public class WeatherScrapingHourlyToStorage {
 	public static List<HourlyWeatherInfo> scrapeHourlyWeatherData3Days(WebDriver driver, String url, String province,
 			String district, String airQuality) {
 		List<HourlyWeatherInfo> hourlyData = new ArrayList<>();
-		driver.get(url);
+		getWithRetry(driver, url, 3);
 		List<WebElement> weatherDetails = driver.findElements(By.cssSelector("details.weather-day"));
 
 		String dewPointSelector = ".weather-detail .d-flex:has(.avatar-img svg[name='dewpoint']) .ml-auto > h3";
@@ -179,18 +199,18 @@ public class WeatherScrapingHourlyToStorage {
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d/M");
 
 		for (WebElement detail : weatherDetails) {
-			detail.click(); // Mở tag <details>
+			detail.click();
 			HourlyWeatherInfo info = new HourlyWeatherInfo();
 
-			// Xác định xem có phải là ngày mới không
+			// Determine if it should be a new date
 			String timeString = safelyGetText(detail, By.cssSelector(".summary-day span"), "Không rõ thời gian").trim();
 			if (timeString.contains("/")) {
-				currentDate = currentDate.plusDays(1); // Cập nhật ngày
+				currentDate = currentDate.plusDays(1);
 			}
 
 			String time = timeString.contains("/") ? "00:00" : timeString;
 			info.setTime(time);
-			info.setDate(currentDate.toString()); // Gán ngày hiện tại cho info
+			info.setDate(currentDate.toString());
 
 			info.setTemperatureMin(
 					safelyGetText(detail, By.cssSelector(".summary-temperature-min"), "Không rõ nhiệt độ thấp nhất"));
@@ -234,7 +254,6 @@ public class WeatherScrapingHourlyToStorage {
 					"Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP\n");
 
 			String ipAddress = getIPAddress();
-			// Lặp qua danh sách và ghi từng đối tượng HourlyWeatherInfo vào tệp CSV
 			for (HourlyWeatherInfo info : weatherData) {
 				writer.append(info.getProvince()).append(",").append(info.getDistrict()).append(",")
 						.append(info.getDate()).append(",").append(info.getTime()).append(",")
@@ -268,13 +287,13 @@ public class WeatherScrapingHourlyToStorage {
 				return scrapeHourlyWeatherData3Days(driver, url, province, district, airQuality);
 			} catch (TimeoutException e) {
 				System.err.println("Timeout khi thu thập dữ liệu từ URL: " + url + ". Thử lại lần " + (attempt + 1));
-				// Tùy chọn: Thêm thời gian chờ giữa các lần thử lại nếu cần
+				System.err.println(e.getMessage());
 			} catch (Exception e) {
 				System.err.println("Lỗi khác khi thu thập dữ liệu từ URL: " + url + ". Thử lại lần " + (attempt + 1));
+				System.err.println(e.getMessage());
 			}
-			// Thời gian chờ (ví dụ: 5 giây) trước khi thử lại
 			try {
-				Thread.sleep(5000);
+				Thread.sleep(10000);
 			} catch (InterruptedException ie) {
 				Thread.currentThread().interrupt();
 			}
@@ -289,58 +308,53 @@ public class WeatherScrapingHourlyToStorage {
 		long startTime = System.currentTimeMillis();
 		List<HourlyWeatherInfo> allWeatherData = new ArrayList<>();
 		ExecutorService executorService = Executors.newFixedThreadPool(4);
-		AtomicInteger completedUrls = new AtomicInteger(1); // Biến đếm
+		AtomicInteger completedUrls = new AtomicInteger(1);
 
-		WebDriver driverForGetProvinces = new ChromeDriver(new ChromeOptions().addArguments("--headless"));
+		WebDriver driverForGetProvinces = new ChromeDriver(createChromeOption());
 		List<ProvinceInfo> provinces = getAllProvinces(driverForGetProvinces);
 
-		for (int i = 0; i < 2; i++) {
+		for (int i = 0; i < provinces.size(); i++) {
 			ProvinceInfo province = provinces.get(i);
 			executorService.submit(() -> {
-				WebDriver driverForProvince = new ChromeDriver(new ChromeOptions().addArguments("--headless"));
-				WebDriver driverForAirQuality = new ChromeDriver(new ChromeOptions().addArguments("--headless"));
+				WebDriver driverForProvince = new ChromeDriver(createChromeOption());
+				WebDriver driverForAirQuality = new ChromeDriver(createChromeOption());
 				try {
-//					lay data chat luong khong khi tu 1 url khac
+					// get air quality data from another url
 					String airQuality = getAirQuality(driverForAirQuality, province.getUrl(), 3);
-					completedUrls.incrementAndGet(); // Tăng biến đếm
-					System.out.println("Finished URL: " + completedUrls.get());
 
 					List<HourlyWeatherInfo> provinceWeatherData = scrapeWithRetry(driverForProvince,
-							province.getUrlHour(), 3, province.getName(), "", airQuality); // Sử dụng thử lại 3 lần
+							province.getUrlHour(), 3, province.getName(), "", airQuality);
 					synchronized (allWeatherData) {
 						allWeatherData.addAll(provinceWeatherData);
 					}
 				} finally {
 					driverForProvince.quit();
-					completedUrls.incrementAndGet(); // Tăng biến đếm
+					completedUrls.incrementAndGet();
+					System.out.println("Finished URL: " + completedUrls.get());
+					completedUrls.incrementAndGet();
 					System.out.println("Finished URL: " + completedUrls.get());
 				}
 			});
 
-			WebDriver driverForGetDistricts = new ChromeDriver(new ChromeOptions().addArguments("--headless"));
+			WebDriver driverForGetDistricts = new ChromeDriver(createChromeOption());
 			List<DistrictInfo> districts = getDistrictsOfProvince(driverForGetDistricts, province.getUrl());
-			for (int j = 0; j < 2; j++) {
+			for (int j = 0; j < districts.size(); j++) {
 				DistrictInfo district = districts.get(j);
 				executorService.submit(() -> {
-					WebDriver driverForDistrict = new ChromeDriver(new ChromeOptions().addArguments("--headless"));
-					WebDriver driverForAirQuality = new ChromeDriver(new ChromeOptions().addArguments("--headless"));
+					WebDriver driverForDistrict = new ChromeDriver(createChromeOption());
+					WebDriver driverForAirQuality = new ChromeDriver(createChromeOption());
 					try {
-//						lay data chat luong khong khi tu 1 url khac
 						String airQuality = getAirQuality(driverForAirQuality, district.getUrl(), 3);
-						completedUrls.incrementAndGet(); // Tăng biến đếm
-						System.out.println("Finished URL: " + completedUrls.get());
 
 						List<HourlyWeatherInfo> districtWeatherData = scrapeWithRetry(driverForDistrict,
-								district.getUrlHour(), 3, province.getName(), district.getName(), airQuality); // Sử
-																												// dụng
-																												// thử
-																												// lại 3
-						// lần
+								district.getUrlHour(), 3, province.getName(), district.getName(), airQuality);
 						synchronized (allWeatherData) {
 							allWeatherData.addAll(districtWeatherData);
 						}
 					} finally {
 						driverForDistrict.quit();
+						completedUrls.incrementAndGet();
+						System.out.println("Finished URL: " + completedUrls.get());
 						completedUrls.incrementAndGet();
 						System.out.println("Finished URL: " + completedUrls.get());
 					}
@@ -371,59 +385,12 @@ public class WeatherScrapingHourlyToStorage {
 	}
 
 	/**
-	 * The main method to start the scraping process.
-	 * 
-	 * @param args Command-line arguments (not used)
-	 */
-	public static void main(String[] args) {
-		if (!setUTF8Output()) {
-			return;
-		}
-
-		ChromeOptions chromeOptions = new ChromeOptions();
-		chromeOptions.addArguments("--headless");
-		chromeOptions.addArguments("--no-sandbox");
-		chromeOptions.addArguments("--disable-dev-shm-usage");
-		WebDriver driver = new ChromeDriver(chromeOptions);
-
-//        test lay quan/phuong
-//		String provinceUrl = "https://thoitiet.vn/cao-bang";
-//		List<DistrictInfo> districts = getDistrictsOfProvince(driver, provinceUrl);
-//		for (DistrictInfo district : districts) {
-//			System.out.println(district);
-//		}
-//
-////        test lay tinh/thanh pho
-//		List<ProvinceInfo> provinces = getAllProvinces(driver);
-//		for (ProvinceInfo province : provinces) {
-//			System.out.println(province);
-//		}
-
-//		String hourlyWeatherUrl = "https://thoitiet.vn/ho-chi-minh/theo-gio";
-//		List<HourlyWeatherInfo> hourlyWeatherData = scrapeHourlyWeatherData(driver, hourlyWeatherUrl);
-//		for (HourlyWeatherInfo info : hourlyWeatherData) {
-//			System.out.println(info);
-//		}
-//		saveToCSV(hourlyWeatherData, LocalDate.now().toString() + ".csv");
-
-//        System.out.println(hourlyWeatherData.get(0));
-
-//		System.out.println(getAirQuality(driver, ""));
-
-//		countUrl(driver);
-
-		scrapeAndSaveToCsv();
-		driver.quit();
-	}
-
-	/**
 	 * Retrieves the public IP address of the machine.
 	 * 
 	 * @return Public IP address as a string
 	 */
 	public static String getIPAddress() {
 		try {
-			// Sử dụng một dịch vụ trực tuyến để lấy địa chỉ IP công cộng
 			URL whatIsMyIP = new URL("https://checkip.amazonaws.com");
 			BufferedReader in = new BufferedReader(new InputStreamReader(whatIsMyIP.openStream()));
 			String ipAddress = in.readLine().trim();
@@ -465,4 +432,16 @@ public class WeatherScrapingHourlyToStorage {
 		System.out.println("Tổng số URL: " + (int) (allUrls.size() + urlForAirQualityCount));
 	}
 
+	/**
+	 * The main method to start the scraping process.
+	 * 
+	 * @param args Command-line arguments (not used)
+	 */
+	public static void main(String[] args) {
+		if (!setUTF8Output()) {
+			return;
+		}
+
+		scrapeAndSaveToCsv();
+	}
 }
