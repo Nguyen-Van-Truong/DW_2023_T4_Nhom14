@@ -87,5 +87,7 @@
 	<classpathentry kind="lib" path="D:/projectJava/jv7(hk1_2023-2024)/selenium-java-4.13.0/selenium-safari-driver-4.13.0-sources.jar"/>
 	<classpathentry kind="lib" path="D:/projectJava/jv7(hk1_2023-2024)/selenium-java-4.13.0/selenium-support-4.13.0.jar"/>
 	<classpathentry kind="lib" path="D:/projectJava/jv7(hk1_2023-2024)/selenium-java-4.13.0/selenium-support-4.13.0-sources.jar"/>
+	<classpathentry kind="lib" path="D:/projectJava/jv7(hk1_2023-2024)/ScrapDataWeather_DataWarehouse/lib/mysql-connector-java-8.0.30.jar"/>
+	<classpathentry kind="lib" path="D:/projectJava/jv7(hk1_2023-2024)/ScrapDataWeather_DataWarehouse/lib/protobuf-java-3.19.4.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
