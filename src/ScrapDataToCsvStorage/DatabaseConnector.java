@@ -1,26 +1,30 @@
 package ScrapDataToCsvStorage;
 
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Properties;
 
 public class DatabaseConnector {
 
-    /**
-     * Establishes a connection to the specified database.
-     *
-     * @param databaseName the name of the database to connect to
-     * @param userName the username for the database connection
-     * @param password the password for the database connection
-     * @return a Connection object
-     * @throws SQLException if a database access error occurs
-     */
-    public static Connection connect(String databaseName, String userName, String password) throws SQLException {
-        String databaseUrl = "jdbc:mysql://localhost:3306/" + databaseName + "?useSSL=false&allowPublicKeyRetrieval=true";
-        System.out.println("Connecting to the database: " + databaseName);
-        return DriverManager.getConnection(databaseUrl, userName, password);
+    private static Properties properties = new Properties();
+
+    static {
+        try (FileInputStream input = new FileInputStream("src/config.properties")) {
+            properties.load(input);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            throw new RuntimeException("Unable to load config.properties", ex);
+        }
+    }
+
+    public static Connection connect(String databaseName) throws SQLException {
+        String databaseUrl = properties.getProperty("database.url") + databaseName;
+        return DriverManager.getConnection(databaseUrl, properties.getProperty("database.username"), properties.getProperty("database.password"));
     }
 
     /**
@@ -48,7 +52,7 @@ public class DatabaseConnector {
     public static void main(String[] args) {
         String databaseName = "control"; // can be changed to any database name
         String tableName = "data_files"; // can be changed to any table name
-        try (Connection connection = connect(databaseName, "root", "")) {
+        try (Connection connection = connect(databaseName)) {
             printAllDataFromTable(connection, tableName);
         } catch (SQLException e) {
             e.printStackTrace();

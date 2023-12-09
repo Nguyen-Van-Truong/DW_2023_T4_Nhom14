@@ -11,12 +11,11 @@ import java.util.concurrent.ThreadLocalRandom;
 
 
 public class ControlDatabaseManager {
-
 	private Connection connection;
 
-	public ControlDatabaseManager(String databaseName, String userName, String password) throws SQLException {
+	public ControlDatabaseManager(String databaseName) throws SQLException {
 		// Establish a database connection
-		this.connection = DatabaseConnector.connect(databaseName, userName, password);
+		this.connection = DatabaseConnector.connect(databaseName);
 	}
 
 	public ResultSet getAllDataFiles() throws SQLException {
@@ -121,7 +120,7 @@ public class ControlDatabaseManager {
 	}
 
 	public static void main(String[] args) throws SQLException {
-		ControlDatabaseManager controlDatabaseManager = new ControlDatabaseManager("control", "root", "");
+		ControlDatabaseManager controlDatabaseManager = new ControlDatabaseManager("control");
 
 		ResultSet rs = controlDatabaseManager.getAllDataFiles();
 //		printResultSet(rs);

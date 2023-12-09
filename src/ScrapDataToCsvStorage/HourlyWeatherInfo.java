@@ -143,12 +143,6 @@ public class HourlyWeatherInfo {
 	}
 
 	/**
-	 * Getters and Setters for various weather parameters like temperature,
-	 * humidity, wind speed, UV index, etc. Each field has a corresponding getter
-	 * and some have setters that also remove units from the string values.
-	 */
-
-	/**
 	 * Removes units from the given string value, if present. This is used to
 	 * process weather data values like temperature, humidity, etc.
 	 *
