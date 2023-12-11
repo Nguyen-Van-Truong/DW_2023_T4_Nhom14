@@ -2,6 +2,7 @@ package ScrapDataToCsvStorage;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -14,7 +15,10 @@ public class DatabaseConnector {
     private static Properties properties = new Properties();
 
     static {
-        try (FileInputStream input = new FileInputStream("src/config.properties")) {
+        try (InputStream input = DatabaseConnector.class.getClassLoader().getResourceAsStream("config.properties")) {
+            if (input == null) {
+                throw new RuntimeException("config.properties could not be found in the classpath");
+            }
             properties.load(input);
         } catch (IOException ex) {
             ex.printStackTrace();
