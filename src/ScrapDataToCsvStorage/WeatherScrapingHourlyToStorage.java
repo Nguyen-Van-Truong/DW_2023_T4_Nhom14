@@ -9,6 +9,8 @@ import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -37,15 +39,23 @@ import org.openqa.selenium.chrome.ChromeOptions;
  */
 public class WeatherScrapingHourlyToStorage {
 
-    /** The default region name used when no specific region is specified. */
+    /**
+     * The default region name used when no specific region is specified.
+     */
     public static final String All = "";
-    /** The name of the Đông Nam Bộ region. */
+    /**
+     * The name of the Đông Nam Bộ region.
+     */
     public static final String DongNamBo = "Đông Nam Bộ";
 
-    /** The total number of URLs for the Đông Nam Bộ region. */
+    /**
+     * The total number of URLs for the Đông Nam Bộ region.
+     */
     public static final int TOTAL_URL_DONG_NAM_BO = 156;
 
-    /** The total number of URLs to be processed for all regions. */
+    /**
+     * The total number of URLs to be processed for all regions.
+     */
     public static int TOTAL_URL = 1542;
 
     /**
@@ -108,8 +118,8 @@ public class WeatherScrapingHourlyToStorage {
      * Attempts to load a page with a given URL, retrying up to a specified number of times.
      * This method is used to handle intermittent network or server issues by retrying the page load.
      *
-     * @param driver    The WebDriver instance used to load the page.
-     * @param url       The URL to be loaded.
+     * @param driver     The WebDriver instance used to load the page.
+     * @param url        The URL to be loaded.
      * @param maxRetries The maximum number of retry attempts.
      * @return true if the page is successfully loaded, false otherwise.
      */
@@ -383,6 +393,8 @@ public class WeatherScrapingHourlyToStorage {
      * @param regionName The name of the region for which to scrape weather data. It determines the scope of data collection.
      */
     public static void scrapeAndSaveToCsv(String regionName) {
+        int dataFileId = insertToControlStartProcess();
+
         long startTime = System.currentTimeMillis();
         List<HourlyWeatherInfo> allWeatherData = new ArrayList<>();
         ExecutorService executorService = Executors.newFixedThreadPool(2); // Adjust thread pool size as needed
@@ -424,7 +436,61 @@ public class WeatherScrapingHourlyToStorage {
         }
 
         // Finalization of the scraping process
-        finalizeScraping(executorService, allWeatherData, completedUrls, startTime);
+        finalizeScraping(executorService, allWeatherData, completedUrls, startTime, dataFileId);
+    }
+
+    public static int insertToControlStartProcess() {
+        try {
+            ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
+            Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+            Timestamp threeDaysLater = Timestamp.valueOf(LocalDateTime.now().plusDays(3));
+
+            // Insert into data_files with status "SE"
+            int fileId = dbManager.insertDataFile("", 0, null, "SE", now, now, threeDaysLater,
+                    "Scraping process started", now, 1, 1, false, null);
+
+            dbManager.closeConnection();
+            System.out.println("Scraping process started and insert to data_files success");
+            return fileId;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return -1; // Return an error indicator
+        }
+    }
+
+
+    private static void insertToControlSuccessProcess(String fileName, int dataFileId, int rowCount, LocalDateTime scrapingTime) {
+        try {
+            ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
+            Timestamp now = Timestamp.valueOf(scrapingTime);
+            String code = convertFileNameToCode(fileName);
+            // Insert into data_file_configs
+            // Note: Adjust these parameters as per your actual data and requirements
+            int configId = dbManager.insertDataFileConfig("WeatherDataScrapingConfig", code, "Configuration for scraping weather data",
+                    "https://thoitiet.vn", "ServerLocation", "CSV", ",",
+                    "Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP", "local_path/to/csv",
+                    now, 1, 1, "/backup_path");
+
+            // Update into data_files
+            dbManager.updateDataFile(dataFileId, fileName, (long) rowCount, configId, "SU", now, true, "Successfully loaded 3-day weather data into CSV from thoitiet.vn");
+
+            // Insert into data_checkpoints
+            dbManager.insertDataCheckpoint("ScrapingCheckpoint", "Data Collection Completed",
+                    code, now, "Completed scraping of weather data",
+                    now, 1, 1);
+
+            dbManager.closeConnection();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            // Handle exceptions
+        }
+    }
+
+    private static String convertFileNameToCode(String originalFileName) {
+        // Remove dashes, underscores, and the .csv extension
+        return originalFileName.trim().replace("-", "")
+                .replace("_", "")
+                .replace(".csv", "");
     }
 
 
@@ -439,7 +505,7 @@ public class WeatherScrapingHourlyToStorage {
      * @param startTime       The start time of the scraping process for calculating the total duration.
      */
     private static void finalizeScraping(ExecutorService executorService, List<HourlyWeatherInfo> allWeatherData,
-                                         AtomicInteger completedUrls, long startTime) {
+                                         AtomicInteger completedUrls, long startTime, int dataFileId) {
         executorService.shutdown();
         try {
             executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
@@ -449,7 +515,7 @@ public class WeatherScrapingHourlyToStorage {
         System.out.println("Total URLs completed: " + completedUrls.get());
         System.out.println("Total data collected: " + allWeatherData.size());
 
-        saveDataAndPrintSummary(allWeatherData, startTime);
+        saveDataAndPrintSummary(allWeatherData, startTime, dataFileId);
     }
 
     /**
@@ -460,7 +526,7 @@ public class WeatherScrapingHourlyToStorage {
      * @param allWeatherData The list of HourlyWeatherInfo objects to be saved.
      * @param startTime      The start time of the scraping process for calculating the total duration.
      */
-    private static void saveDataAndPrintSummary(List<HourlyWeatherInfo> allWeatherData, long startTime) {
+    private static void saveDataAndPrintSummary(List<HourlyWeatherInfo> allWeatherData, long startTime, int dataFileId) {
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm");
         String formattedDateTime = now.format(formatter);
@@ -472,6 +538,8 @@ public class WeatherScrapingHourlyToStorage {
         long endTime = System.currentTimeMillis();
         long duration = endTime - startTime;
         System.out.println("Total runtime: " + duration + " ms");
+
+        insertToControlSuccessProcess(fileName, dataFileId, allWeatherData.size(), now);
     }
 
     /**
