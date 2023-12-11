@@ -393,6 +393,8 @@ public class WeatherScrapingHourlyToStorage {
      * @param regionName The name of the region for which to scrape weather data. It determines the scope of data collection.
      */
     public static void scrapeAndSaveToCsv(String regionName) {
+        if (isReadyToRun()) return;
+
         int dataFileId = insertToControlStartProcess();
 
         long startTime = System.currentTimeMillis();
@@ -437,6 +439,20 @@ public class WeatherScrapingHourlyToStorage {
 
         // Finalization of the scraping process
         finalizeScraping(executorService, allWeatherData, completedUrls, startTime, dataFileId);
+    }
+
+    private static boolean isReadyToRun() {
+        try {
+            ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
+            if (!dbManager.isReadyToRun()) {
+                System.out.println("Scraping process is not ready to run. Either a process is ongoing or a successful process was completed today.");
+                return true;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return true;
+        }
+        return false;
     }
 
     public static int insertToControlStartProcess() {

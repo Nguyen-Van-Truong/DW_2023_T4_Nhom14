@@ -449,7 +449,7 @@ public class ControlDatabaseManager {
 
     // Kiểm tra xem có chương trình nào đã chạy thành công trong ngày hôm nay chưa
     public static void main(String[] args) throws SQLException {
-//        testDataFilesMethod();
+        testDataFilesMethod();
 //        testConfigMethods();
 //		testCheckpointMethods();
         ControlDatabaseManager manager = new ControlDatabaseManager("control");
