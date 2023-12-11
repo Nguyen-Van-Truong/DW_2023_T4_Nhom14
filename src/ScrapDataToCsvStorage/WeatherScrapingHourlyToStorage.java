@@ -501,7 +501,8 @@ public class WeatherScrapingHourlyToStorage {
             Timestamp now = Timestamp.valueOf(scrapingTime);
             String code = convertFileNameToCode(fileName);
             // Insert into data_file_configs
-            int configId = dbManager.insertDataFileConfig("WeatherDataScrapingConfig", code, "Configuration for scraping weather data", "https://thoitiet.vn", "ServerLocation", "CSV", ",", "Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP", absolutePath, now, 1, 1, "/backup_path");
+            int configId = dbManager.insertDataFileConfig("WeatherDataScrapingConfig", code, "Configuration for scraping weather data"
+                    , "https://thoitiet.vn", "ServerLocation", "CSV", ",", "Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP", absolutePath, now, 1, 1, "/backup_path");
 
             // Update into data_files
             dbManager.updateDataFile(dataFileId, fileName, (long) rowCount, configId, "SU", now, true, "Successfully loaded 3-day weather data into CSV from thoitiet.vn");

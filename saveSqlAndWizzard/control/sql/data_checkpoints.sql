@@ -11,7 +11,7 @@
  Target Server Version : 100428 (10.4.28-MariaDB)
  File Encoding         : 65001
 
- Date: 11/12/2023 14:21:27
+ Date: 11/12/2023 15:21:07
 */
 
 SET NAMES utf8mb4;
@@ -33,11 +33,11 @@ CREATE TABLE `data_checkpoints`  (
   `created_by` int NULL DEFAULT NULL,
   `updated_by` int NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of data_checkpoints
 -- ----------------------------
-INSERT INTO `data_checkpoints` VALUES (1, 'ScrapingCheckpoint', 'Data Collection Completed', '2023121022073120', '2023-12-10 22:07:00', 'Completed scraping of weather data', '2023-12-10 22:07:00', '2023-12-10 22:07:01', 1, 1);
+INSERT INTO `data_checkpoints` VALUES (1, 'ScrapingCheckpoint', 'Data Collection Completed', '2023121115193024', '2023-12-11 15:19:03', 'Completed scraping of weather data', '2023-12-11 15:19:03', '2023-12-11 15:19:04', 1, 1);
 
 SET FOREIGN_KEY_CHECKS = 1;

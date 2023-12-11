@@ -11,7 +11,7 @@
  Target Server Version : 100428 (10.4.28-MariaDB)
  File Encoding         : 65001
 
- Date: 11/12/2023 14:21:36
+ Date: 11/12/2023 15:21:27
 */
 
 SET NAMES utf8mb4;
@@ -38,11 +38,11 @@ CREATE TABLE `data_file_configs`  (
   `updated_by` int NULL DEFAULT NULL,
   `backup_path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of data_file_configs
 -- ----------------------------
-INSERT INTO `data_file_configs` VALUES (1, 'WeatherDataScrapingConfig', '2023121022073120', 'Configuration for scraping weather data', 'https://thoitiet.vn', 'ServerLocation', 'CSV', ',', 'Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP', 'local_path/to/csv', '2023-12-10 22:07:00', '2023-12-10 22:07:01', 1, 1, '/backup_path');
+INSERT INTO `data_file_configs` VALUES (1, 'WeatherDataScrapingConfig', '2023121115193024', 'Configuration for scraping weather data', 'https://thoitiet.vn', 'ServerLocation', 'CSV', ',', 'Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP', 'D:\\dataWeatherCsv\\2023-12-11_15-19_3024.csv', '2023-12-11 15:19:03', '2023-12-11 15:19:04', 1, 1, '/backup_path');
 
 SET FOREIGN_KEY_CHECKS = 1;
