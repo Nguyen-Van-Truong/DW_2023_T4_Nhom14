@@ -1,0 +1,2 @@
+"id"	"name"	"row_count"	"df_config_id"	"status"	"file_timestamp"	"data_range_from"	"data_range_to"	"note"	"created_at"	"updated_at"	"created_by"	"updated_by"	"is_inserted"	"deleted_at"
+"1"	"2023-12-10_22-07_3120.csv"	"3120"	"1"	"SU"	"10/12/2023 21:57:36"	"10/12/2023 21:57:36"	"13/12/2023 21:57:36"	"Successfully loaded 3-day weather data into CSV from thoitiet.vn"	"10/12/2023 21:57:36"	"10/12/2023 22:30:52"	"1"	"1"	"1"	

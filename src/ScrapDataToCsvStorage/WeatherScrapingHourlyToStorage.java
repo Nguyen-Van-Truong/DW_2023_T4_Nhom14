@@ -1,12 +1,6 @@
 package ScrapDataToCsvStorage;
 
-import java.io.BufferedReader;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
@@ -109,7 +103,7 @@ public class WeatherScrapingHourlyToStorage {
                 provinces.add(new ProvinceInfo(provinceName, provinceUrl));
             }
         } finally {
-            driver.quit(); // Close the WebDriver
+            driver.quit();
         }
 
         return provinces;
@@ -129,17 +123,17 @@ public class WeatherScrapingHourlyToStorage {
         for (int attempt = 0; attempt < maxRetries; attempt++) {
             try {
                 driver.get(url);
-                return true; // Successfully loaded the page
+                return true;
             } catch (Exception e) {
                 System.err.println("Error accessing URL: " + url + ". Retry attempt " + (attempt + 1));
                 try {
-                    Thread.sleep(10000); // Wait for 5 seconds before retrying
+                    Thread.sleep(10000); // Wait for 10 seconds before retrying
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                 }
             }
         }
-        return false; // Failed to load the page after retries
+        return false;
     }
 
     /**
@@ -163,7 +157,7 @@ public class WeatherScrapingHourlyToStorage {
                 districts.add(new DistrictInfo(districtName, districtUrl));
             }
         } finally {
-            driver.quit(); // Ensure the WebDriver is closed
+            driver.quit();
         }
 
         return districts;
@@ -292,23 +286,14 @@ public class WeatherScrapingHourlyToStorage {
             info.setTime(time);
             info.setDate(currentDate.toString());
 
-            info.setTemperatureMin(
-                    safelyGetText(detail, By.cssSelector(".summary-temperature-min"), "Không rõ nhiệt độ thấp nhất"));
-            info.setTemperatureMax(safelyGetText(detail, By.cssSelector(".summary-temperature-max-value"),
-                    "Không rõ nhiệt độ cao nhất"));
+            info.setTemperatureMin(safelyGetText(detail, By.cssSelector(".summary-temperature-min"), "Không rõ nhiệt độ thấp nhất"));
+            info.setTemperatureMax(safelyGetText(detail, By.cssSelector(".summary-temperature-max-value"), "Không rõ nhiệt độ cao nhất"));
             info.setDescription(safelyGetText(detail, By.cssSelector(".summary-description-detail"), "Không rõ mô tả"));
-            info.setHumidity(safelyGetText(detail, By.cssSelector(".summary-humidity > span:last-child"),
-                    "Không có dữ liệu Độ ẩm"));
-            info.setWindSpeed(safelyGetText(detail, By.cssSelector(".summary-speed > span:last-child"),
-                    "Không có dữ liệu Tốc độ gió"));
-            info.setUvIndex(safelyGetText(detail, By.cssSelector(".weather-content-item .op-8.fw-bold"),
-                    "Không có dữ liệu UV"));
-            info.setVisibility(
-                    safelyGetText(detail, By.xpath(".//h6[contains(text(), 'Tầm nhìn')]/following-sibling::div/span"),
-                            "Không có dữ liệu Tầm nhìn"));
-            info.setPressure(
-                    safelyGetText(detail, By.xpath(".//h6[contains(text(), 'Áp suất')]/following-sibling::div/h3"),
-                            "Không có dữ liệu Áp suất"));
+            info.setHumidity(safelyGetText(detail, By.cssSelector(".summary-humidity > span:last-child"), "Không có dữ liệu Độ ẩm"));
+            info.setWindSpeed(safelyGetText(detail, By.cssSelector(".summary-speed > span:last-child"), "Không có dữ liệu Tốc độ gió"));
+            info.setUvIndex(safelyGetText(detail, By.cssSelector(".weather-content-item .op-8.fw-bold"), "Không có dữ liệu UV"));
+            info.setVisibility(safelyGetText(detail, By.xpath(".//h6[contains(text(), 'Tầm nhìn')]/following-sibling::div/span"), "Không có dữ liệu Tầm nhìn"));
+            info.setPressure(safelyGetText(detail, By.xpath(".//h6[contains(text(), 'Áp suất')]/following-sibling::div/h3"), "Không có dữ liệu Áp suất"));
             info.setStopPoint(dewPoint);
             info.setUrl(url);
             info.setProvince(province);
@@ -322,31 +307,41 @@ public class WeatherScrapingHourlyToStorage {
 
     /**
      * Saves the collected weather data to a CSV file.
-     * The method writes the weather data in CSV format to the specified file path.
+     * The method checks if the specified directory exists, creates it if necessary,
+     * and then writes the weather data in CSV format to the specified file path.
      *
      * @param weatherData The list of HourlyWeatherInfo objects to be saved.
      * @param filePath    The path of the CSV file where the data will be saved.
      */
     public static void saveToCSV(List<HourlyWeatherInfo> weatherData, String filePath) {
-        try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(filePath),
-                StandardCharsets.UTF_8)) {
-            writer.write('\ufeff');
-            writer.append(
-                    "Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP\n");
+        try {
+            // Check if the directory exists, create it if it doesn't
+            File file = new File(filePath);
+            File directory = new File(file.getParent());
+            if (!directory.exists()) {
+                directory.mkdirs(); // This will create parent directories if they don't exist
+            }
 
-            String ipAddress = getIPAddress();
-            for (HourlyWeatherInfo info : weatherData) {
-                writer.append(info.getProvince()).append(",").append(info.getDistrict()).append(",")
-                        .append(info.getDate()).append(",").append(info.getTime()).append(",")
-                        .append(info.getTemperatureMin()).append(",").append(info.getTemperatureMax()).append(",")
-                        .append(info.getDescription()).append(",").append(info.getHumidity()).append(",")
-                        .append(info.getWindSpeed()).append(",").append(info.getUvIndex()).append(",")
-                        .append(info.getVisibility()).append(",").append(info.getPressure()).append(",")
-                        .append(info.getStopPoint()).append(",").append(info.getAirQuality()).append(",")
-                        .append(info.getUrl()).append(",").append(ipAddress).append("\n"); // Thêm giá trị IP
+            try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(file),
+                    StandardCharsets.UTF_8)) {
+                writer.write('\ufeff');
+                writer.append(
+                        "Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP\n");
+
+                String ipAddress = getIPAddress();
+                for (HourlyWeatherInfo info : weatherData) {
+                    writer.append(info.getProvince()).append(",").append(info.getDistrict()).append(",")
+                            .append(info.getDate()).append(",").append(info.getTime()).append(",")
+                            .append(info.getTemperatureMin()).append(",").append(info.getTemperatureMax()).append(",")
+                            .append(info.getDescription()).append(",").append(info.getHumidity()).append(",")
+                            .append(info.getWindSpeed()).append(",").append(info.getUvIndex()).append(",")
+                            .append(info.getVisibility()).append(",").append(info.getPressure()).append(",")
+                            .append(info.getStopPoint()).append(",").append(info.getAirQuality()).append(",")
+                            .append(info.getUrl()).append(",").append(ipAddress).append("\n");
+                }
             }
         } catch (IOException e) {
-            System.err.println("Lỗi khi ghi vào tệp CSV: " + e.getMessage());
+            System.err.println("Error while writing to CSV file: " + e.getMessage());
         }
     }
 
@@ -392,16 +387,17 @@ public class WeatherScrapingHourlyToStorage {
      * It aggregates the scraped weather data and air quality information from multiple sources.
      * After completing the scraping tasks, it compiles the data into a CSV file format and saves it.
      *
-     * @param regionName The name of the region for which to scrape weather data. It determines the scope of data collection.
+     * @param regionName    The name of the region for which to scrape weather data. It determines the scope of data collection.
+     * @param directoryPath The file path of the directory where the CSV file will be saved.
      */
-    public static void scrapeAndSaveToCsv(String regionName) {
+    public static void scrapeAndSaveToCsv(String regionName, String directoryPath) {
         if (isReadyToRun()) return;
 
         int dataFileId = insertToControlStartProcess();
 
         long startTime = System.currentTimeMillis();
         List<HourlyWeatherInfo> allWeatherData = new ArrayList<>();
-        ExecutorService executorService = Executors.newFixedThreadPool(2); // Adjust thread pool size as needed
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
         AtomicInteger completedUrls = new AtomicInteger(0);
 
         List<ProvinceInfo> provinces = getAllProvinces(regionName);
@@ -412,8 +408,7 @@ public class WeatherScrapingHourlyToStorage {
                 String airQuality = getAirQuality(province.getUrl(), 3);
                 System.out.println("Finished URL: " + completedUrls.incrementAndGet() + "/" + TOTAL_URL_DONG_NAM_BO);
 
-                List<HourlyWeatherInfo> provinceWeatherData = scrapeWithRetry(province.getUrlHour(), 3,
-                        province.getName(), "", airQuality);
+                List<HourlyWeatherInfo> provinceWeatherData = scrapeWithRetry(province.getUrlHour(), 3, province.getName(), "", airQuality);
                 synchronized (allWeatherData) {
                     allWeatherData.addAll(provinceWeatherData);
                 }
@@ -429,8 +424,7 @@ public class WeatherScrapingHourlyToStorage {
                     String airQuality = getAirQuality(district.getUrl(), 3);
                     System.out.println("Finished URL: " + completedUrls.incrementAndGet() + "/" + TOTAL_URL_DONG_NAM_BO);
 
-                    List<HourlyWeatherInfo> districtWeatherData = scrapeWithRetry(district.getUrlHour(), 3,
-                            province.getName(), district.getName(), airQuality);
+                    List<HourlyWeatherInfo> districtWeatherData = scrapeWithRetry(district.getUrlHour(), 3, province.getName(), district.getName(), airQuality);
                     synchronized (allWeatherData) {
                         allWeatherData.addAll(districtWeatherData);
                     }
@@ -440,14 +434,22 @@ public class WeatherScrapingHourlyToStorage {
         }
 
         // Finalization of the scraping process
-        finalizeScraping(executorService, allWeatherData, completedUrls, startTime, dataFileId);
+        finalizeScraping(executorService, allWeatherData, completedUrls, startTime, dataFileId, directoryPath);
     }
 
+    /**
+     * Checks if the scraping process is ready to run.
+     * This method ensures that there is no ongoing scraping process and that a successful process hasn't been completed already on the same day.
+     * It queries the control database to determine the readiness of the process.
+     *
+     * @return true if the scraping process can start, false otherwise.
+     */
     private static boolean isReadyToRun() {
         try {
             ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
             if (!dbManager.isReadyToRun()) {
                 System.out.println("Scraping process is not ready to run. Either a process is ongoing or a successful process was completed today.");
+                dbManager.closeConnection();
                 return true;
             }
         } catch (SQLException e) {
@@ -457,6 +459,13 @@ public class WeatherScrapingHourlyToStorage {
         return false;
     }
 
+    /**
+     * Records the start of a scraping process in the control database.
+     * This method logs the initiation of a scraping process by inserting a new record in the control database.
+     * It includes information such as the current time, expected completion time, and initial status.
+     *
+     * @return The generated ID for the new data file record in the database, or -1 in case of an error.
+     */
     public static int insertToControlStartProcess() {
         try {
             ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
@@ -464,8 +473,7 @@ public class WeatherScrapingHourlyToStorage {
             Timestamp threeDaysLater = Timestamp.valueOf(LocalDateTime.now().plusDays(3));
 
             // Insert into data_files with status "SE"
-            int fileId = dbManager.insertDataFile("", 0, null, "SE", now, now, threeDaysLater,
-                    "Scraping process started", now, 1, 1, false, null);
+            int fileId = dbManager.insertDataFile("", 0, null, "SE", now, now, threeDaysLater, "Scraping process started", now, 1, 1, false, null);
 
             dbManager.closeConnection();
             System.out.println("Scraping process started and insert to data_files success");
@@ -477,53 +485,62 @@ public class WeatherScrapingHourlyToStorage {
     }
 
 
-    private static void insertToControlSuccessProcess(String fileName, int dataFileId, int rowCount, LocalDateTime scrapingTime) {
+    /**
+     * Logs the successful completion of a scraping process in the control database.
+     * This method updates the database to reflect the successful completion of the scraping process.
+     * It includes details such as the final file name, row count, and configuration details.
+     *
+     * @param fileName     The name of the CSV file where data is saved.
+     * @param dataFileId   The ID of the data file record in the database.
+     * @param rowCount     The number of rows of data scraped.
+     * @param scrapingTime The time at which the scraping was completed.
+     */
+    private static void insertToControlSuccessProcess(String fileName, String absolutePath, int dataFileId, int rowCount, LocalDateTime scrapingTime) {
         try {
             ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
             Timestamp now = Timestamp.valueOf(scrapingTime);
             String code = convertFileNameToCode(fileName);
             // Insert into data_file_configs
-            // Note: Adjust these parameters as per your actual data and requirements
-            int configId = dbManager.insertDataFileConfig("WeatherDataScrapingConfig", code, "Configuration for scraping weather data",
-                    "https://thoitiet.vn", "ServerLocation", "CSV", ",",
-                    "Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP", "local_path/to/csv",
-                    now, 1, 1, "/backup_path");
+            int configId = dbManager.insertDataFileConfig("WeatherDataScrapingConfig", code, "Configuration for scraping weather data", "https://thoitiet.vn", "ServerLocation", "CSV", ",", "Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP", absolutePath, now, 1, 1, "/backup_path");
 
             // Update into data_files
             dbManager.updateDataFile(dataFileId, fileName, (long) rowCount, configId, "SU", now, true, "Successfully loaded 3-day weather data into CSV from thoitiet.vn");
 
             // Insert into data_checkpoints
-            dbManager.insertDataCheckpoint("ScrapingCheckpoint", "Data Collection Completed",
-                    code, now, "Completed scraping of weather data",
-                    now, 1, 1);
+            dbManager.insertDataCheckpoint("ScrapingCheckpoint", "Data Collection Completed", code, now, "Completed scraping of weather data", now, 1, 1);
 
             dbManager.closeConnection();
         } catch (SQLException e) {
             e.printStackTrace();
-            // Handle exceptions
         }
     }
 
+    /**
+     * Converts a given file name to a standardized code format.
+     * This method is used for database entries and removes special characters like dashes and underscores from the file name.
+     * It also removes the file extension for a cleaner code representation.
+     *
+     * @param originalFileName The original file name to be converted.
+     * @return The standardized code string derived from the file name.
+     */
     private static String convertFileNameToCode(String originalFileName) {
-        // Remove dashes, underscores, and the .csv extension
-        return originalFileName.trim().replace("-", "")
-                .replace("_", "")
-                .replace(".csv", "");
+        return originalFileName.trim().replace("-", "").replace("_", "").replace(".csv", "");
     }
 
 
     /**
-     * Finalizes the scraping process by shutting down the ExecutorService and summarizing the results.
-     * This method waits for all tasks to complete, then prints the total number of URLs processed and the size of the collected data.
-     * Finally, it calls the method to save the data and print a summary.
+     * Completes the scraping process by terminating the ExecutorService and summarizing the results.
+     * This method waits for all scraping tasks to finish, summarizes the data collected, and then proceeds to save the data.
+     * It also calculates the total time taken for the scraping process.
      *
-     * @param executorService The ExecutorService used for managing scraping tasks.
-     * @param allWeatherData  The list of all collected HourlyWeatherInfo objects.
-     * @param completedUrls   A counter of the completed URLs.
-     * @param startTime       The start time of the scraping process for calculating the total duration.
+     * @param executorService The ExecutorService managing the scraping tasks.
+     * @param allWeatherData  A list of collected HourlyWeatherInfo objects.
+     * @param completedUrls   A counter for the number of URLs successfully processed.
+     * @param startTime       The timestamp marking the start of the scraping process.
+     * @param dataFileId      The ID of the data file record in the database.
+     * @param directoryPath   The file path of the directory where the CSV file will be saved.
      */
-    private static void finalizeScraping(ExecutorService executorService, List<HourlyWeatherInfo> allWeatherData,
-                                         AtomicInteger completedUrls, long startTime, int dataFileId) {
+    private static void finalizeScraping(ExecutorService executorService, List<HourlyWeatherInfo> allWeatherData, AtomicInteger completedUrls, long startTime, int dataFileId, String directoryPath) {
         executorService.shutdown();
         try {
             executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
@@ -533,37 +550,42 @@ public class WeatherScrapingHourlyToStorage {
         System.out.println("Total URLs completed: " + completedUrls.get());
         System.out.println("Total data collected: " + allWeatherData.size());
 
-        saveDataAndPrintSummary(allWeatherData, startTime, dataFileId);
+        saveDataAndPrintSummary(allWeatherData, startTime, dataFileId, directoryPath);
     }
 
     /**
-     * Saves the collected weather data to a CSV file and prints a summary of the operation.
-     * The method formats the current time to create a unique filename for the CSV, saves the data,
-     * and then prints out a summary including the total runtime of the scraping process.
+     * Saves the scraped weather data into a CSV file and prints a summary of the operation.
+     * This method creates a unique filename for the CSV file based on the current time and the size of the data.
+     * It then writes the collected weather data to this file and prints out the total runtime of the scraping process.
      *
      * @param allWeatherData The list of HourlyWeatherInfo objects to be saved.
-     * @param startTime      The start time of the scraping process for calculating the total duration.
+     * @param startTime      The start time of the scraping process.
+     * @param dataFileId     The ID of the data file record in the database.
+     * @param directoryPath  The file path of the directory where the CSV file will be saved.
      */
-    private static void saveDataAndPrintSummary(List<HourlyWeatherInfo> allWeatherData, long startTime, int dataFileId) {
+    private static void saveDataAndPrintSummary(List<HourlyWeatherInfo> allWeatherData, long startTime, int dataFileId, String directoryPath) {
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm");
         String formattedDateTime = now.format(formatter);
 
         String fileName = formattedDateTime + "_" + allWeatherData.size() + ".csv";
-        saveToCSV(allWeatherData, fileName);
+        String absolutePath = directoryPath + File.separator + formattedDateTime + "_" + allWeatherData.size() + ".csv";
+        saveToCSV(allWeatherData, absolutePath);
         System.out.println("Success save to " + fileName);
 
         long endTime = System.currentTimeMillis();
         long duration = endTime - startTime;
         System.out.println("Total runtime: " + duration + " ms");
 
-        insertToControlSuccessProcess(fileName, dataFileId, allWeatherData.size(), now);
+        insertToControlSuccessProcess(fileName, absolutePath, dataFileId, allWeatherData.size(), now);
     }
 
     /**
-     * Retrieves the public IP address of the machine.
+     * Retrieves the public IP address of the current machine.
+     * This method accesses an external service to obtain the public IP address of the machine running this application.
+     * It is used for logging purposes in the scraping process.
      *
-     * @return Public IP address as a string
+     * @return The public IP address as a String, or an error message if the address cannot be retrieved.
      */
     public static String getIPAddress() {
         try {
@@ -579,11 +601,12 @@ public class WeatherScrapingHourlyToStorage {
     }
 
     /**
-     * Counts and prints the number of different URLs for provinces and districts within a specified region.
-     * This method is useful for understanding the scope of data collection and ensures that all relevant URLs are accounted for.
+     * Counts and categorizes the different URLs for provinces and districts within a specified region.
+     * This method is useful for assessing the total number of unique URLs that will be scraped for weather data.
+     * It provides a breakdown of the number of provinces, districts, and air quality URLs.
      *
-     * @param regionName The name of the region to retrieve URLs for.
-     * @return The total number of unique URLs found for the given region.
+     * @param regionName The name of the region for which to count URLs.
+     * @return The total number of unique URLs for the specified region.
      */
     private static int countUrl(String regionName) {
 
@@ -628,7 +651,7 @@ public class WeatherScrapingHourlyToStorage {
             return;
         }
 
-        scrapeAndSaveToCsv(DongNamBo);
+        scrapeAndSaveToCsv(DongNamBo, "D:\\dataWeatherCsv");
 //        countUrl(DongNamBo);
 //        System.out.println(getAllProvinces("Đông Nam Bộ"));
 //        System.out.println(getDistrictsOfProvince("https://thoitiet.vn/ho-chi-minh"));

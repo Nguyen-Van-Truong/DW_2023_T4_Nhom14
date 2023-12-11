@@ -17,13 +17,13 @@ public class ControlDatabaseManager {
     private static Connection connection;
 
     /**
-     * Constructor to establish a database connection.
+     * Constructs a ControlDatabaseManager instance and establishes a connection to the specified database.
+     * This constructor initializes the connection field using the provided database name.
      *
      * @param databaseName The name of the database to connect to.
-     * @throws SQLException If a database access error occurs.
+     * @throws SQLException If a database access error occurs or the connection attempt fails.
      */
     public ControlDatabaseManager(String databaseName) throws SQLException {
-        // Establish a database connection
         this.connection = DatabaseConnector.connect(databaseName);
     }
 
@@ -80,7 +80,7 @@ public class ControlDatabaseManager {
             preparedStatement.setTimestamp(4, dataUptoDate);
             preparedStatement.setString(5, note);
             preparedStatement.setTimestamp(6, createdAt);
-            preparedStatement.setTimestamp(7, new Timestamp(System.currentTimeMillis())); // Set updated_at to current time
+            preparedStatement.setTimestamp(7, new Timestamp(System.currentTimeMillis()));
             preparedStatement.setObject(8, createdBy);
             preparedStatement.setObject(9, updatedBy);
             preparedStatement.executeUpdate();
@@ -357,10 +357,11 @@ public class ControlDatabaseManager {
     }
 
     /**
-     * Prints the ResultSet in a tabular format.
+     * Prints the contents of a ResultSet in a tabular format.
+     * This method iterates over the ResultSet and prints each row and column, providing a visual representation of the data.
      *
      * @param rs The ResultSet to be printed.
-     * @throws SQLException If a database access error occurs.
+     * @throws SQLException If an error occurs while accessing the ResultSet data.
      */
     public static void printResultSet(ResultSet rs) throws SQLException {
         ResultSetMetaData rsmd = rs.getMetaData();
