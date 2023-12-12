@@ -64,7 +64,6 @@ public class WeatherScrapingHourlyToStorage {
      * @return true if the encoding is set successfully, false otherwise
      */
     private static boolean setUTF8Output() {
-
         try {
             System.setOut(new PrintStream(System.out, true, "UTF-8"));
             return true;
@@ -398,47 +397,71 @@ public class WeatherScrapingHourlyToStorage {
         int dataFileId = insertToControlStartProcess();
 
         long startTime = System.currentTimeMillis();
-        List<HourlyWeatherInfo> allWeatherData = new ArrayList<>();
-        ExecutorService executorService = Executors.newFixedThreadPool(2);
-        AtomicInteger completedUrls = new AtomicInteger(0);
+        try {
+            List<HourlyWeatherInfo> allWeatherData = new ArrayList<>();
+            ExecutorService executorService = Executors.newFixedThreadPool(2);
+            AtomicInteger completedUrls = new AtomicInteger(0);
 
-        List<ProvinceInfo> provinces = getAllProvinces(regionName);
+            List<ProvinceInfo> provinces = getAllProvinces(regionName);
 
-        for (ProvinceInfo province : provinces) {
-            // Submit separate tasks for each province
-            executorService.submit(() -> {
-                String airQuality = getAirQuality(province.getUrl(), 3);
-                System.out.println("Finished URL: " + completedUrls.incrementAndGet() + "/" + TOTAL_URL_DONG_NAM_BO);
-
-                List<HourlyWeatherInfo> provinceWeatherData = scrapeWithRetry(province.getUrlHour(), 3, province.getName(), "", airQuality);
-                synchronized (allWeatherData) {
-                    allWeatherData.addAll(provinceWeatherData);
-                }
-                System.out.println("Finished URL: " + completedUrls.incrementAndGet() + "/" + TOTAL_URL_DONG_NAM_BO);
-            });
-
-            // Process districts within each province
-            List<DistrictInfo> districts = getDistrictsOfProvince(province.getUrl());
-
-            for (DistrictInfo district : districts) {
-                // Submit separate tasks for each district
+            for (ProvinceInfo province : provinces) {
+                // Submit separate tasks for each province
                 executorService.submit(() -> {
-                    String airQuality = getAirQuality(district.getUrl(), 3);
+                    String airQuality = getAirQuality(province.getUrl(), 3);
                     System.out.println("Finished URL: " + completedUrls.incrementAndGet() + "/" + TOTAL_URL_DONG_NAM_BO);
 
-                    List<HourlyWeatherInfo> districtWeatherData = scrapeWithRetry(district.getUrlHour(), 3, province.getName(), district.getName(), airQuality);
+                    List<HourlyWeatherInfo> provinceWeatherData = scrapeWithRetry(province.getUrlHour(), 3, province.getName(), "", airQuality);
                     synchronized (allWeatherData) {
-                        allWeatherData.addAll(districtWeatherData);
+                        allWeatherData.addAll(provinceWeatherData);
                     }
                     System.out.println("Finished URL: " + completedUrls.incrementAndGet() + "/" + TOTAL_URL_DONG_NAM_BO);
                 });
-                break;
+
+                // Process districts within each province
+                List<DistrictInfo> districts = getDistrictsOfProvince(province.getUrl());
+
+                for (DistrictInfo district : districts) {
+                    // Submit separate tasks for each district
+                    executorService.submit(() -> {
+                        String airQuality = getAirQuality(district.getUrl(), 3);
+                        System.out.println("Finished URL: " + completedUrls.incrementAndGet() + "/" + TOTAL_URL_DONG_NAM_BO);
+
+                        List<HourlyWeatherInfo> districtWeatherData = scrapeWithRetry(district.getUrlHour(), 3, province.getName(), district.getName(), airQuality);
+                        synchronized (allWeatherData) {
+                            allWeatherData.addAll(districtWeatherData);
+                        }
+                        System.out.println("Finished URL: " + completedUrls.incrementAndGet() + "/" + TOTAL_URL_DONG_NAM_BO);
+                    });
+                }
             }
-            break;
+
+            // Finalization of the scraping process
+            finalizeScraping(executorService, allWeatherData, completedUrls, startTime, dataFileId, directoryPath);
+        } catch (Exception e) {
+            System.err.println("Error occurred during scraping: " + e.getMessage());
+            updateDataFilesStatusToEF(dataFileId, e.getMessage());
         }
 
-        // Finalization of the scraping process
-        finalizeScraping(executorService, allWeatherData, completedUrls, startTime, dataFileId, directoryPath);
+    }
+
+    /**
+     * Updates the status of a data file to 'EF' (Error Finished) in the control database and logs an error message.
+     *
+     * @param dataFileId   The ID of the data file to update.
+     * @param errorMessage The error message to log.
+     */
+    private static void updateDataFilesStatusToEF(int dataFileId, String errorMessage) {
+        try {
+            ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
+            Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+
+            // Update data_files status to 'EF' and update_at to now
+            dbManager.updateDataFileStatus(dataFileId, "EF", errorMessage, now);
+
+            dbManager.closeConnection();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     /**

@@ -80,47 +80,67 @@ public class StagingDatabaseManager {
         truncateTable();
 
         int dataFileId = insertToControlStartProcess();
+        try {
+            String csvFilePath = control.getLatestSuccessfulDestination("ScrapDataToCsv");
+            System.out.println("Get csvFilePath success: " + csvFilePath);
 
-        String csvFilePath = control.getLatestSuccessfulDestination();
-        System.out.println("Get csvFilePath success: " + csvFilePath);
+            String insertQuery = "INSERT INTO weatherdata (Date, Time, Province, Wards, District, Temperature, Feeling, Status, Humidity, Vision" +
+                    ", Wind_speed, Stop_point, Uv_index, Airquality, Last_update_time, Breadcrumb, Url, Path, Dtrequest, Request, Method, Protocols" +
+                    ", Status_code, Host, Server, Ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        String insertQuery = "INSERT INTO weatherdata (Date, Time, Province, Wards, District, Temperature, Feeling, Status, Humidity, Vision" +
-                ", Wind_speed, Stop_point, Uv_index, Airquality, Last_update_time, Breadcrumb, Url, Path, Dtrequest, Request, Method, Protocols" +
-                ", Status_code, Host, Server, Ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            String lastUpdateTime = LocalDateTime.now().format(formatter);
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        String lastUpdateTime = LocalDateTime.now().format(formatter);
+            DateTimeFormatter formatter2 = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+            String time2 = LocalDateTime.now().format(formatter2);
 
-        DateTimeFormatter formatter2 = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-        String time2 = LocalDateTime.now().format(formatter2);
+            int totalLines = countLines(csvFilePath) - 1;
+            int processedLines = 0;
+            int lastReportedProgress = -1;
+            int progressPercentage = 0;
+            try (CSVReader reader = new CSVReader(new FileReader(csvFilePath));
+                 PreparedStatement preparedStatement = connection.prepareStatement(insertQuery)) {
+                String[] nextLine;
+                reader.readNext(); // Skip header line
+                while ((nextLine = reader.readNext()) != null) {
+                    mapCsvLineToPreparedStatement(nextLine, preparedStatement, lastUpdateTime);
+                    preparedStatement.executeUpdate();
+                    processedLines++;
 
-        int totalLines = countLines(csvFilePath) - 1;
-        int processedLines = 0;
-        int lastReportedProgress = -1;
-        int progressPercentage = 0;
-        try (CSVReader reader = new CSVReader(new FileReader(csvFilePath));
-             PreparedStatement preparedStatement = connection.prepareStatement(insertQuery)) {
-            String[] nextLine;
-            reader.readNext(); // Skip header line
-            while ((nextLine = reader.readNext()) != null) {
-                mapCsvLineToPreparedStatement(nextLine, preparedStatement, lastUpdateTime);
-                preparedStatement.executeUpdate();
-                processedLines++;
-
-                progressPercentage = (int) (((double) processedLines / totalLines) * 100);
-                if (progressPercentage != lastReportedProgress) {
-                    System.out.println("Progress: " + progressPercentage + "% - " + processedLines + "/" + totalLines);
-                    lastReportedProgress = progressPercentage;
+                    progressPercentage = (int) (((double) processedLines / totalLines) * 100);
+                    if (progressPercentage != lastReportedProgress) {
+                        System.out.println("Progress: " + progressPercentage + "% - " + processedLines + "/" + totalLines);
+                        lastReportedProgress = progressPercentage;
+                    }
                 }
+
+                System.out.println("Progress: 100% - " + processedLines + "/" + totalLines);
+                String code = "LCTS" + time2 + totalLines;
+                insertToControlSuccessProcess(code, csvFilePath, dataFileId, totalLines);
+
+                control.closeConnection();
+            } catch (CsvValidationException e) {
+                updateDataFilesStatusToEF(dataFileId, e.getMessage());
+                throw new RuntimeException(e);
             }
-
-            System.out.println("Progress: 100% - " + processedLines + "/" + totalLines);
-            String code = "LCTS" + time2 + totalLines;
-            insertToControlSuccessProcess(code, csvFilePath, dataFileId, totalLines);
-
-            control.closeConnection();
-        } catch (CsvValidationException e) {
+        } catch (Exception e) {
+            updateDataFilesStatusToEF(dataFileId, e.getMessage());
             throw new RuntimeException(e);
+        }
+
+    }
+
+    private void updateDataFilesStatusToEF(int dataFileId, String errorMessage) {
+        try {
+            ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
+            Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+
+            // Update data_files status to 'EF' and update_at to now
+            dbManager.updateDataFileStatus(dataFileId, "EF", errorMessage, now);
+
+            dbManager.closeConnection();
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 

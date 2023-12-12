@@ -94,7 +94,26 @@ public class ControlDatabaseManager {
         }
         return null;
     }
-
+    /**
+     * Updates the status and updated_at timestamp of a data file record in the data_files table.
+     *
+     * @param id          The ID of the data file record to update.
+     * @param newStatus   The new status of the file (e.g., 'EF' for error, 'SU' for success).
+     * @param errorMessage An error message or note related to the status update.
+     * @param updatedAt   The timestamp of the update.
+     * @throws SQLException If a database access error occurs or the update operation fails.
+     */
+    public void updateDataFileStatus(int id, String newStatus, String errorMessage, Timestamp updatedAt)
+            throws SQLException {
+        String query = "UPDATE " + DATA_FILES + " SET status = ?, updated_at = ?, note = ? WHERE id = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, newStatus);
+            preparedStatement.setTimestamp(2, updatedAt);
+            preparedStatement.setString(3, errorMessage);
+            preparedStatement.setInt(4, id);
+            preparedStatement.executeUpdate();
+        }
+    }
     /**
      * Retrieves all records from a specified table.
      *
@@ -520,25 +539,49 @@ public class ControlDatabaseManager {
         return false;
     }
 
-
-    public String getLatestSuccessfulDestination() throws SQLException {
-        int dfConfigId = getLatestSuccessfulDfConfigId();
+    /**
+     * Retrieves the destination path associated with the latest successful DataFileConfig
+     * for a given process name.
+     *
+     * @param nameProcess The name of the process to filter the results (can be an empty string to match all).
+     * @return The destination path as a String or null if no successful DataFileConfig is found.
+     * @throws SQLException If a database access error occurs.
+     */
+    public String getLatestSuccessfulDestination(String nameProcess) throws SQLException {
+        int dfConfigId = getLatestSuccessfulDfConfigId(nameProcess);
         if (dfConfigId != -1) {
             return getDestinationFromDfConfigId(dfConfigId);
         }
         return null;
     }
 
-    private int getLatestSuccessfulDfConfigId() throws SQLException {
-        String query = "SELECT df_config_id FROM data_files WHERE status = 'SU' AND DATE(created_at) = CURDATE() ORDER BY created_at DESC LIMIT 1";
-        try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
-            if (rs.next()) {
-                return rs.getInt("df_config_id");
+    /**
+     * Retrieves the ID of the latest successful DataFileConfig created today.
+     *
+     * @param nameProcess The name of the process to filter the results (can be an empty string to match all).
+     * @return The ID of the latest successful DataFileConfig, or -1 if no such record is found.
+     * @throws SQLException If a database access error occurs.
+     */
+    private int getLatestSuccessfulDfConfigId(String nameProcess) throws SQLException {
+        String query = "SELECT df_config_id FROM data_files WHERE name = ? AND status = 'SU' AND DATE(created_at) = CURDATE() ORDER BY created_at DESC LIMIT 1";
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, nameProcess);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("df_config_id");
+                }
             }
         }
         return -1; // Indicates no record found
     }
 
+    /**
+     * Retrieves the destination path associated with a DataFileConfig.
+     *
+     * @param dfConfigId The ID of the DataFileConfig.
+     * @return The destination path as a String or null if the DataFileConfig is not found.
+     * @throws SQLException If a database access error occurs.
+     */
     private String getDestinationFromDfConfigId(int dfConfigId) throws SQLException {
         String query = "SELECT destination FROM data_file_configs WHERE id = ?";
         try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
