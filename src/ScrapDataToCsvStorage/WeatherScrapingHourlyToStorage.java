@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import DBConnectControlDB.ControlDatabaseManager;
 import org.openqa.selenium.By;
 import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.TimeoutException;
@@ -502,7 +503,7 @@ public class WeatherScrapingHourlyToStorage {
             String code = convertFileNameToCode(fileName);
             // Insert into data_file_configs
             int configId = dbManager.insertDataFileConfig("WeatherDataScrapingConfig", code, "Configuration for scraping weather data"
-                    , "https://thoitiet.vn", "ServerLocation", "CSV", ",", "Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP", absolutePath, now, 1, 1, "/backup_path");
+                    , "https://thoitiet.vn", "localhost", "CSV", ",", "Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP", absolutePath, now, 1, 1, "/backup_path");
 
             // Update into data_files
             dbManager.updateDataFile(dataFileId, fileName, (long) rowCount, configId, "SU", now, true, "Successfully loaded 3-day weather data into CSV from thoitiet.vn");
