@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Properties;
 
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
@@ -20,6 +19,7 @@ import com.opencsv.exceptions.CsvValidationException;
  */
 public class StagingDatabaseManager {
 
+    public static final String nameProcess = "LoadCsvToStaging";
     private Connection connection;
 
     /**
@@ -45,20 +45,44 @@ public class StagingDatabaseManager {
         }
     }
 
+    public static int insertToControlStartProcess() {
+        try {
+            ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
+            Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+            Timestamp threeDaysLater = Timestamp.valueOf(LocalDateTime.now().plusDays(3));
+
+            // Insert into data_files with status "SE"
+            int fileId = dbManager.insertDataFile(nameProcess, 0, null, "SE", now, now, threeDaysLater, "Loading data from csv file to staging process started", now, 1, 1, false, null);
+
+//            dbManager.closeConnection();
+            System.out.println("Scraping process started and insert to data_files success");
+            return fileId;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return -1; // Return an error indicator
+        }
+    }
+
     /**
      * Loads data from a specified CSV file into the 'weatherdata' staging table.
      *
-     * @param csvFilePath The file path of the CSV file to be loaded.
      * @throws SQLException If a database access error occurs.
      * @throws IOException  If an I/O error occurs while reading the CSV file.
      */
-    public void loadCsvToStaging(String csvFilePath) throws SQLException, IOException {
+    public void loadCsvToStaging() throws SQLException, IOException {
         ControlDatabaseManager control = new ControlDatabaseManager("control");
-        if (!control.hasSuccessfulProcessToday()) {
-            System.out.println("There are no csv files available today.");
+
+        if (!control.isReadyToRun(nameProcess)) {
+            System.out.println("There are no csv files available today or have loadCsvToStaging process is ongoing.");
             return;
         }
+
         truncateTable();
+
+        int dataFileId = insertToControlStartProcess();
+
+        String csvFilePath = control.getLatestSuccessfulDestination();
+        System.out.println("Get csvFilePath success: " + csvFilePath);
 
         String insertQuery = "INSERT INTO weatherdata (Date, Time, Province, Wards, District, Temperature, Feeling, Status, Humidity, Vision" +
                 ", Wind_speed, Stop_point, Uv_index, Airquality, Last_update_time, Breadcrumb, Url, Path, Dtrequest, Request, Method, Protocols" +
@@ -67,7 +91,10 @@ public class StagingDatabaseManager {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         String lastUpdateTime = LocalDateTime.now().format(formatter);
 
-        int totalLines = countLines(csvFilePath);
+        DateTimeFormatter formatter2 = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+        String time2 = LocalDateTime.now().format(formatter2);
+
+        int totalLines = countLines(csvFilePath) - 1;
         int processedLines = 0;
         int lastReportedProgress = -1;
         int progressPercentage = 0;
@@ -88,6 +115,10 @@ public class StagingDatabaseManager {
             }
 
             System.out.println("Progress: 100% - " + processedLines + "/" + totalLines);
+            String code = "LCTS" + time2 + totalLines;
+            insertToControlSuccessProcess(code, csvFilePath, dataFileId, totalLines);
+
+            control.closeConnection();
         } catch (CsvValidationException e) {
             throw new RuntimeException(e);
         }
@@ -227,6 +258,47 @@ public class StagingDatabaseManager {
         return preparedStatement.executeQuery();
     }
 
+    private static boolean isReadyToRun() {
+        try {
+            ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
+            if (!dbManager.isReadyToRun(nameProcess)) {
+                System.out.println("Scraping process is not ready to run. Either a process is ongoing or a successful process was completed today.");
+                dbManager.closeConnection();
+                return true;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return true;
+        }
+        return false;
+    }
+
+    private static void insertToControlSuccessProcess(String code, String absolutePath, int dataFileId, int rowCount) {
+        try {
+            ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
+
+            LocalDateTime scrapingTime = LocalDateTime.now();
+            Timestamp now = Timestamp.valueOf(scrapingTime);
+            // Insert into data_file_configs
+            String columns = "id, Date, Time, Province, Wards, District, Temperature, Feeling" +
+                    ", Status, Humidity, Vision, Wind_speed, Stop_point, Uv_index" +
+                    ", Airquality, Last_update_time, Breadcrumb, Url, Path, Dtrequest, Request, Method, Protocols, Status_code, Host, Server, Ip";
+            int configId = dbManager.insertDataFileConfig("LoadCsvToStagingConfig", code, "Configuration for load csv file to staging config"
+                    , absolutePath, "localhost", null, null, columns
+                    , "table weatherdata in staging database", now, 1, 1, "/backup_path");
+
+            // Update into data_files
+            dbManager.updateDataFile(dataFileId, (long) rowCount, configId, "SU", now, true, "Successfully load csv file to staging database");
+
+            // Insert into data_checkpoints
+            dbManager.insertDataCheckpoint("LoadCsvToStagingCheckpoint", "Load Csv File To Staging Database Completed", code, now, "Completed Load Csv File To Staging Database", now, 1, 1);
+
+            dbManager.closeConnection();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
     /**
      * Deletes a record from the 'weatherdata' table based on its ID.
      *
@@ -254,7 +326,7 @@ public class StagingDatabaseManager {
 
     public static void main(String[] args) throws SQLException, IOException {
         StagingDatabaseManager stagingDatabaseManager = new StagingDatabaseManager("staging");
-        stagingDatabaseManager.loadCsvToStaging("D:\\dataWeatherCsv2\\2023-12-11_15-19_3024.csv");
+        stagingDatabaseManager.loadCsvToStaging();
 
     }
 }

@@ -28,6 +28,74 @@ public class ControlDatabaseManager {
     }
 
     /**
+     * Retrieves a DataFile, its associated DataFileConfig, and corresponding DataCheckpoint based on the DataFile's ID.
+     * @param dataFileId The ID of the DataFile.
+     * @return An array of objects where the first element is a DataFile, the second is a DataFileConfig, and the third is a DataCheckpoint.
+     * @throws SQLException If a database access error occurs.
+     */
+    public Object[] getDataFileConfigAndCheckpoint(int dataFileId) throws SQLException {
+        DataFile dataFile = getDataFileById(dataFileId);
+        if (dataFile == null) {
+            return null;
+        }
+
+        DataFileConfig dataFileConfig = getDataFileConfigById(dataFile.getDfConfigId());
+        if (dataFileConfig == null) {
+            return null;
+        }
+
+        DataCheckpoint dataCheckpoint = getDataCheckpointByCode(dataFileConfig.getCode());
+        return new Object[] { dataFile, dataFileConfig, dataCheckpoint };
+    }
+
+    private DataFile getDataFileById(int id) throws SQLException {
+        String query = "SELECT * FROM data_files WHERE id = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setInt(1, id);
+            ResultSet rs = preparedStatement.executeQuery();
+            if (rs.next()) {
+                // Initialize DataFile object using the ResultSet
+                return new DataFile(rs.getInt("id"), rs.getString("name"), rs.getLong("row_count"), rs.getInt("df_config_id"), rs.getString("status"),
+                        rs.getTimestamp("file_timestamp"), rs.getTimestamp("data_range_from"), rs.getTimestamp("data_range_to"),
+                        rs.getString("note"), rs.getTimestamp("created_at"), rs.getTimestamp("updated_at"), rs.getInt("created_by"),
+                        rs.getInt("updated_by"), rs.getBoolean("is_inserted"), rs.getTimestamp("deleted_at"));
+            }
+        }
+        return null;
+    }
+
+    private DataFileConfig getDataFileConfigById(int id) throws SQLException {
+        String query = "SELECT * FROM data_file_configs WHERE id = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setInt(1, id);
+            ResultSet rs = preparedStatement.executeQuery();
+            if (rs.next()) {
+                // Initialize DataFileConfig object using the ResultSet
+                return new DataFileConfig(rs.getInt("id"), rs.getString("name"), rs.getString("code"), rs.getString("description"),
+                        rs.getString("source_path"), rs.getString("location"), rs.getString("format"), rs.getString("separator"),
+                        rs.getString("columns"), rs.getString("destination"), rs.getTimestamp("created_at"), rs.getTimestamp("updated_at"),
+                        rs.getInt("created_by"), rs.getInt("updated_by"), rs.getString("backup_path"));
+            }
+        }
+        return null;
+    }
+
+    private DataCheckpoint getDataCheckpointByCode(String code) throws SQLException {
+        String query = "SELECT * FROM data_checkpoints WHERE code = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, code);
+            ResultSet rs = preparedStatement.executeQuery();
+            if (rs.next()) {
+                // Initialize DataCheckpoint object using the ResultSet
+                return new DataCheckpoint(rs.getInt("id"), rs.getString("group_name"), rs.getString("name"), rs.getString("code"),
+                        rs.getTimestamp("data_upto_date"), rs.getString("note"), rs.getTimestamp("created_at"), rs.getTimestamp("updated_at"),
+                        rs.getInt("created_by"), rs.getInt("updated_by"));
+            }
+        }
+        return null;
+    }
+
+    /**
      * Retrieves all records from a specified table.
      *
      * @param tableName The name of the table from which records are to be fetched.
@@ -305,7 +373,6 @@ public class ControlDatabaseManager {
      * This method is typically used to modify details of a data file after its initial creation.
      *
      * @param id            The ID of the data file record to update.
-     * @param newName       The new name for the data file.
      * @param newRowCount   The updated row count of the data file.
      * @param newDfConfigId The updated data file configuration ID associated with the file.
      * @param newStatus     The new status of the file (e.g., processed, failed).
@@ -314,23 +381,23 @@ public class ControlDatabaseManager {
      * @param note          Additional notes or remarks about the file or the update.
      * @throws SQLException If a database access error occurs or the update operation fails.
      */
-    public void updateDataFile(int id, String newName, Long newRowCount, Integer newDfConfigId,
+    public void updateDataFile(int id, Long newRowCount, Integer newDfConfigId,
                                String newStatus, Timestamp updatedAt, Boolean isInserted, String note)
             throws SQLException {
-        String query = "UPDATE data_files SET name = ?, row_count = ?, df_config_id = ?, status = ?, " +
+        String query = "UPDATE data_files SET row_count = ?, df_config_id = ?, status = ?, " +
                 "updated_at = ?, is_inserted = ?, note = ? WHERE id = ?";
         try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-            preparedStatement.setString(1, newName);
-            preparedStatement.setObject(2, newRowCount); // setObject allows null
-            preparedStatement.setObject(3, newDfConfigId);
-            preparedStatement.setString(4, newStatus);
-            preparedStatement.setTimestamp(5, updatedAt);
-            preparedStatement.setObject(6, isInserted ? 1 : 0); // Convert Boolean to Integer (1 for true, 0 for false)
-            preparedStatement.setString(7, note);
-            preparedStatement.setInt(8, id);
+            preparedStatement.setObject(1, newRowCount); // setObject allows null
+            preparedStatement.setObject(2, newDfConfigId);
+            preparedStatement.setString(3, newStatus);
+            preparedStatement.setTimestamp(4, updatedAt);
+            preparedStatement.setObject(5, isInserted ? 1 : 0); // Convert Boolean to Integer (1 for true, 0 for false)
+            preparedStatement.setString(6, note);
+            preparedStatement.setInt(7, id);
             preparedStatement.executeUpdate();
         }
     }
+
 
     /**
      * Deletes a data file from the data_files table.
@@ -388,9 +455,9 @@ public class ControlDatabaseManager {
      * @return true if the system is ready to run a new process, false otherwise.
      * @throws SQLException If a database access error occurs.
      */
-    public boolean isReadyToRun() throws SQLException {
-        boolean hasSuccessfulProcessToday = hasSuccessfulProcessToday();
-        boolean isProcessOngoing = isProcessOngoing();
+    public boolean isReadyToRun(String nameProcess) throws SQLException {
+        boolean hasSuccessfulProcessToday = hasSuccessfulProcessToday(nameProcess);
+        boolean isProcessOngoing = isProcessOngoing(nameProcess);
 
         return !hasSuccessfulProcessToday && !isProcessOngoing;
     }
@@ -401,9 +468,10 @@ public class ControlDatabaseManager {
      * @return true if a successful process exists, false otherwise.
      * @throws SQLException If a database access error occurs.
      */
-    public boolean hasSuccessfulProcessToday() throws SQLException {
-        String query = "SELECT COUNT(*) FROM data_files WHERE status = 'SU' AND DATE(created_at) = CURDATE()";
+    public boolean hasSuccessfulProcessToday(String nameProcess) throws SQLException {
+        String query = "SELECT COUNT(*) FROM data_files WHERE name = ? AND status = 'SU' AND DATE(created_at) = CURDATE()";
         try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, nameProcess);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
                 return resultSet.getInt(1) > 0;
@@ -411,6 +479,7 @@ public class ControlDatabaseManager {
         }
         return false;
     }
+
 
     /**
      * Checks if any scraping process is currently ongoing and started within the last 30 minutes.
@@ -418,11 +487,12 @@ public class ControlDatabaseManager {
      * @return true if an ongoing process exists, false otherwise.
      * @throws SQLException If a database access error occurs.
      */
-    public boolean isProcessOngoing() throws SQLException {
-        String query = "SELECT COUNT(*) FROM data_files WHERE status = 'SE' AND created_at >= ?";
+    public boolean isProcessOngoing(String nameProcess) throws SQLException {
+        String query = "SELECT COUNT(*) FROM data_files WHERE name = ? AND status = 'SE' AND created_at >= ?";
         try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, nameProcess);
             Timestamp thirtyMinutesAgo = Timestamp.valueOf(LocalDateTime.now().minus(30, ChronoUnit.MINUTES));
-            preparedStatement.setTimestamp(1, thirtyMinutesAgo);
+            preparedStatement.setTimestamp(2, thirtyMinutesAgo); // Set the created_at parameter in the query
             ResultSet resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
                 return resultSet.getInt(1) > 0;
@@ -430,6 +500,7 @@ public class ControlDatabaseManager {
         }
         return false;
     }
+
 
     /**
      * Checks if any scraping process has failed today.
@@ -437,9 +508,10 @@ public class ControlDatabaseManager {
      * @return true if a failed process exists, false otherwise.
      * @throws SQLException If a database access error occurs.
      */
-    public boolean hasFailedProcessToday() throws SQLException {
-        String query = "SELECT COUNT(*) FROM data_files WHERE status = 'EF' AND DATE(created_at) = CURDATE()";
+    public boolean hasFailedProcessToday(String nameProcess) throws SQLException {
+        String query = "SELECT COUNT(*) FROM data_files WHERE name = ? AND status = 'EF' AND DATE(created_at) = CURDATE()";
         try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, nameProcess);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
                 return resultSet.getInt(1) > 0;
@@ -448,14 +520,59 @@ public class ControlDatabaseManager {
         return false;
     }
 
-    // Kiểm tra xem có chương trình nào đã chạy thành công trong ngày hôm nay chưa
+
+    public String getLatestSuccessfulDestination() throws SQLException {
+        int dfConfigId = getLatestSuccessfulDfConfigId();
+        if (dfConfigId != -1) {
+            return getDestinationFromDfConfigId(dfConfigId);
+        }
+        return null;
+    }
+
+    private int getLatestSuccessfulDfConfigId() throws SQLException {
+        String query = "SELECT df_config_id FROM data_files WHERE status = 'SU' AND DATE(created_at) = CURDATE() ORDER BY created_at DESC LIMIT 1";
+        try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
+            if (rs.next()) {
+                return rs.getInt("df_config_id");
+            }
+        }
+        return -1; // Indicates no record found
+    }
+
+    private String getDestinationFromDfConfigId(int dfConfigId) throws SQLException {
+        String query = "SELECT destination FROM data_file_configs WHERE id = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setInt(1, dfConfigId);
+            try (ResultSet rs = preparedStatement.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("destination");
+                }
+            }
+        }
+        return null; // Indicates no destination found
+    }
+
     public static void main(String[] args) throws SQLException {
-        testDataFilesMethod();
+//        testDataFilesMethod();
 //        testConfigMethods();
 //		testCheckpointMethods();
         ControlDatabaseManager manager = new ControlDatabaseManager("control");
+        Object[] dataFileObjects = manager.getDataFileConfigAndCheckpoint(1); // Assuming you are fetching the record with ID 1
 
-        System.out.println(manager.isReadyToRun());
+        if (dataFileObjects != null) {
+            for (Object obj : dataFileObjects) {
+                if (obj != null) {
+                    System.out.println(obj.toString());
+                } else {
+                    System.out.println("Null object found in the array.");
+                }
+            }
+        } else {
+            System.out.println("No data found for the specified DataFile ID.");
+        }
+
+        // Closing the connection
+        manager.closeConnection();
     }
 
     public static void testCheckpointMethods() throws SQLException {

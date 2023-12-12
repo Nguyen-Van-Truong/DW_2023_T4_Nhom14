@@ -49,6 +49,7 @@ public class WeatherScrapingHourlyToStorage {
      * The total number of URLs for the Đông Nam Bộ region.
      */
     public static final int TOTAL_URL_DONG_NAM_BO = 156;
+    public static final String nameProcess = "ScrapDataToCsv";
 
     /**
      * The total number of URLs to be processed for all regions.
@@ -431,7 +432,9 @@ public class WeatherScrapingHourlyToStorage {
                     }
                     System.out.println("Finished URL: " + completedUrls.incrementAndGet() + "/" + TOTAL_URL_DONG_NAM_BO);
                 });
+                break;
             }
+            break;
         }
 
         // Finalization of the scraping process
@@ -448,7 +451,7 @@ public class WeatherScrapingHourlyToStorage {
     private static boolean isReadyToRun() {
         try {
             ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
-            if (!dbManager.isReadyToRun()) {
+            if (!dbManager.isReadyToRun(nameProcess)) {
                 System.out.println("Scraping process is not ready to run. Either a process is ongoing or a successful process was completed today.");
                 dbManager.closeConnection();
                 return true;
@@ -474,7 +477,7 @@ public class WeatherScrapingHourlyToStorage {
             Timestamp threeDaysLater = Timestamp.valueOf(LocalDateTime.now().plusDays(3));
 
             // Insert into data_files with status "SE"
-            int fileId = dbManager.insertDataFile("", 0, null, "SE", now, now, threeDaysLater, "Scraping process started", now, 1, 1, false, null);
+            int fileId = dbManager.insertDataFile(nameProcess, 0, null, "SE", now, now, threeDaysLater, "Scraping process started", now, 1, 1, false, null);
 
             dbManager.closeConnection();
             System.out.println("Scraping process started and insert to data_files success");
@@ -506,7 +509,7 @@ public class WeatherScrapingHourlyToStorage {
                     , "https://thoitiet.vn", "localhost", "CSV", ",", "Province,District,Date,Time,TemperatureMin,TemperatureMax,Description,Humidity,WindSpeed,UVIndex,Visibility,Pressure,StopPoint,AirQuality,URL,IP", absolutePath, now, 1, 1, "/backup_path");
 
             // Update into data_files
-            dbManager.updateDataFile(dataFileId, fileName, (long) rowCount, configId, "SU", now, true, "Successfully loaded 3-day weather data into CSV from thoitiet.vn");
+            dbManager.updateDataFile(dataFileId, (long) rowCount, configId, "SU", now, true, "Successfully loaded 3-day weather data into CSV from thoitiet.vn");
 
             // Insert into data_checkpoints
             dbManager.insertDataCheckpoint("ScrapingCheckpoint", "Data Collection Completed", code, now, "Completed scraping of weather data", now, 1, 1);
