@@ -1,5 +1,5 @@
 <component name="ArtifactManager">
-  <artifact type="jar" name="LoadDataFromCsvToStaging">
+  <artifact type="jar" name="LoadDataFromCsvToStaging.jar">
     <output-path>$PROJECT_DIR$/out/artifacts/LoadDataFromCsvToStaging</output-path>
     <root id="archive" name="LoadDataFromCsvToStaging.jar">
       <element id="module-output" name="DataWarehouse" />
