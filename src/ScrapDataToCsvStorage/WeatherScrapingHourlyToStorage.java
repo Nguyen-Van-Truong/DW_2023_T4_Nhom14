@@ -392,7 +392,7 @@ public class WeatherScrapingHourlyToStorage {
      * @param directoryPath The file path of the directory where the CSV file will be saved.
      */
     public static void scrapeAndSaveToCsv(String regionName, String directoryPath) {
-        if (isReadyToRun()) return;
+        if (isNotReadyToRun()) return;
 
         int dataFileId = insertToControlStartProcess();
 
@@ -471,7 +471,7 @@ public class WeatherScrapingHourlyToStorage {
      *
      * @return true if the scraping process can start, false otherwise.
      */
-    private static boolean isReadyToRun() {
+    private static boolean isNotReadyToRun() {
         try {
             ControlDatabaseManager dbManager = new ControlDatabaseManager("control");
             if (!dbManager.isReadyToRun(nameProcess)) {
