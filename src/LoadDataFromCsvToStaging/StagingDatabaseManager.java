@@ -71,12 +71,14 @@ public class StagingDatabaseManager {
      */
     public void loadCsvToStaging() throws SQLException, IOException {
         ControlDatabaseManager control = new ControlDatabaseManager("control");
-
         if (!control.isReadyToRun(nameProcess)) {
             System.out.println("There are no csv files available today or have loadCsvToStaging process is ongoing.");
             return;
         }
-
+        if (!control.hasSuccessfulProcessToday("ScrapDataToCsv")) {
+            System.out.println("There are no ScrapDataToCsv Process Successful today");
+            return;
+        }
         truncateTable();
 
         int dataFileId = insertToControlStartProcess();
