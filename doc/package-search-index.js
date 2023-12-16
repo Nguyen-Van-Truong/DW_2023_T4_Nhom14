@@ -1,1 +1,1 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"ScrapDataToCsvStorage"}];updateSearchResults();
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"DBConnectControlDB"},{"l":"LoadDataFromCsvToStaging"},{"l":"ScrapDataToCsvStorage"}];updateSearchResults();

@@ -1,1 +1,3 @@
+DBConnectControlDB
+LoadDataFromCsvToStaging
 ScrapDataToCsvStorage
