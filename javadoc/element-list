@@ -1,0 +1,4 @@
+org.example
+org.example.model.control
+org.example.model.staging
+org.example.model.warehouse
