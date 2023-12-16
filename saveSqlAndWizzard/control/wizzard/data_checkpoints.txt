@@ -1,2 +1,0 @@
-"id"	"group_name"	"name"	"code"	"data_upto_date"	"note"	"created_at"	"updated_at"	"created_by"	"updated_by"
-"1"	"ScrapingCheckpoint"	"Data Collection Completed"	"2023121115193024"	"11/12/2023 15:19:03"	"Completed scraping of weather data"	"11/12/2023 15:19:03"	"11/12/2023 15:19:04"	"1"	"1"
